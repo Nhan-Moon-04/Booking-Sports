@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "64844720661",
+    "project_id": "sixth-bonbon-459403-e3",
+    "storage_bucket": "sixth-bonbon-459403-e3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:64844720661:android:4ee19d465781de0d24bc1c",
+        "android_client_info": {
+          "package_name": "com.example.do_an_mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "64844720661-0cj3fs0m7rigu9upg7nphq3pbtrpkhbs.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD7ad2n1ihGf_2ySE9drd6XRhvVITdCN9o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "64844720661-0cj3fs0m7rigu9upg7nphq3pbtrpkhbs.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "64844720661-eie77t8tn8mi3l76ih7l51vft79ittb4.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.doAnMobile"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

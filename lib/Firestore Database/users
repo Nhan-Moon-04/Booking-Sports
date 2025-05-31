@@ -1,0 +1,10 @@
+{
+  userId: string,         // ID từ Firebase Auth
+  email: string,          // Email đăng nhập
+  name: string,           // Tên hiển thị
+  phone: string,          // Số điện thoại
+  avatar: string,         // URL ảnh đại diện
+  role: 'user' | 'admin', // Phân quyền
+  createdAt: timestamp,   // Ngày tạo
+  updatedAt: timestamp    // Ngày cập nhật
+}

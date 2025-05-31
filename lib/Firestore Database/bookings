@@ -1,0 +1,13 @@
+{
+  bookingId: string,      // ID đặt sân
+  userId: string,         // Tham chiếu đến users
+  fieldId: string,        // Tham chiếu đến sport_fields
+  date: string,           // Ngày đặt (format: 'yyyy-MM-dd')
+  startTime: string,      // Giờ bắt đầu (format: 'HH:mm')
+  endTime: string,        // Giờ kết thúc
+  totalPrice: number,     // Tổng tiền
+  status: 'pending' | 'confirmed' | 'cancelled',
+  paymentMethod: 'cash' | 'momo', // Bỏ qua nếu không cần
+  createdAt: timestamp,
+  notes: string           // Ghi chú thêm
+}

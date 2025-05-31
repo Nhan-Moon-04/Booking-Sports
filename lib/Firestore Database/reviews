@@ -1,0 +1,8 @@
+{
+  reviewId: string,       // ID đánh giá
+  userId: string,         // Tham chiếu đến users
+  fieldId: string,        // Tham chiếu đến sport_fields
+  rating: number,         // Điểm (1-5)
+  comment: string,        // Nội dung
+  createdAt: timestamp
+}

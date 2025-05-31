@@ -1,0 +1,7 @@
+{
+  sportId: string,        // ID môn thể thao
+  name: string,           // Tên môn (Bóng đá, Cầu lông...)
+  icon: string,           // Tên icon (material-icons)
+  image: string,          // URL ảnh minh họa
+  isActive: boolean       // Trạng thái
+}
