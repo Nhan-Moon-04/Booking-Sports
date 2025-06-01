@@ -26,38 +26,33 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _currentIndex == 0
-          ? AppBar(
-              title: const Text('Đặt Sân Thể Thao'),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.notifications),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Icon(Icons.account_circle),
-                  onPressed: () => setState(() => _currentIndex = 2),
-                ),
-              ],
-            )
-          : null,
+      appBar:
+          _currentIndex == 0
+              ? AppBar(
+                title: const Text('Đặt Sân Thể Thao'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications),
+                    onPressed: () {},
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.account_circle),
+                    onPressed: () => setState(() => _currentIndex = 2),
+                  ),
+                ],
+              )
+              : null,
       body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Trang chủ',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today),
             label: 'Lịch đặt',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Tài khoản',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tài khoản'),
         ],
       ),
     );
@@ -86,24 +81,38 @@ class _HomeContentState extends State<HomeContent> {
   }
 
   Future<void> _fetchSportsFields() async {
+    
     try {
-      final snapshot = await FirebaseFirestore.instance.collection('sports_fields').get();
+      print("Đang kết nối tới Firestore...");
+      final querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('sports_fields')
+              .limit(10) // Giới hạn số lượng document
+              .get();
+
+      print("Nhận được ${querySnapshot.size} documents");
+
+      if (querySnapshot.size == 0) {
+        print("Không tìm thấy sân nào trong database");
+        return;
+      }
+
+      final fields =
+          querySnapshot.docs.map((doc) {
+            print("Document ID: ${doc.id}");
+            return SportsField.fromFirestore(doc);
+          }).toList();
+
       setState(() {
-        _allSportsFields = snapshot.docs.map((doc) {
-          final data = doc.data();
-          return SportsField(
-            id: doc.id,
-            name: data['name'] ?? '',
-            address: data['address'] ?? '',
-            lat: data['lat']?.toDouble() ?? 0.0,
-            lng: data['lng']?.toDouble() ?? 0.0,
-            sportType: data['sportType'] ?? '',
-          );
-        }).toList();
+        _allSportsFields = fields;
         _sportsFields = List.from(_allSportsFields);
       });
-    } catch (e) {
-      print('Error fetching sports fields: $e');
+    } catch (e, stackTrace) {
+      print("Lỗi khi đọc Firestore: $e");
+      print(stackTrace);
+      setState(() {
+        _mapLoadingError = true;
+      });
     }
   }
 
@@ -152,69 +161,64 @@ class _HomeContentState extends State<HomeContent> {
     }
   }
 
-  void _showFieldDetails(BuildContext context, SportsField field) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              field.name,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
+ void _showFieldDetails(BuildContext context, SportsField field) {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (context) => Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            field.name,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(field.address, style: TextStyle(color: Colors.grey[600])),
+          const SizedBox(height: 8),
+          Text(
+            'Loại sân: ${field.sportType}',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.star, color: Colors.amber, size: 16),
+                  SizedBox(width: 4),
+                  Text('4.8 (120)'),
+                ],
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              field.address,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Loại sân: ${field.sportType}',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.star, color: Colors.amber, size: 16),
-                    SizedBox(width: 4),
-                    Text('4.8 (120)'),
-                  ],
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context); // Đóng bottom sheet
+                  Navigator.pushNamed(
+                    context,
+                    AppRoutes.booking,
+                    arguments: {'field': field}, // Truyền dữ liệu sân qua arguments
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    if (_auth.currentUser == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Vui lòng đăng nhập để đặt sân')),
-                      );
-                      return;
-                    }
-                    AppRoutes.goTo(context, '/booking');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                  child: const Text('Đặt ngay'),
-                ),
-              ],
-            ),
-          ],
-        ),
+                child: const Text('Đặt ngay'),
+              ),
+            ],
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -238,10 +242,14 @@ class _HomeContentState extends State<HomeContent> {
               ),
               onChanged: (value) {
                 setState(() {
-                  _sportsFields = _allSportsFields
-                      .where((field) =>
-                          field.name.toLowerCase().contains(value.toLowerCase()))
-                      .toList();
+                  _sportsFields =
+                      _allSportsFields
+                          .where(
+                            (field) => field.name.toLowerCase().contains(
+                              value.toLowerCase(),
+                            ),
+                          )
+                          .toList();
                 });
               },
             ),
@@ -254,49 +262,57 @@ class _HomeContentState extends State<HomeContent> {
             children: [
               SizedBox(
                 height: 200,
-                child: _mapLoadingError
-                    ? const Center(child: Text('Lỗi tải bản đồ, vui lòng thử lại'))
-                    : FlutterMap(
-                        mapController: _mapController,
-                        options: MapOptions(
-                          initialCenter: _center,
-                          initialZoom: 14.0,
-                          onTap: (tapPosition, point) {
-                            AppRoutes.goTo(context, AppRoutes.map);
-                          },
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate:
-                                'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            subdomains: const ['a', 'b', 'c'],
-                            errorTileCallback: (tile, error, stackTrace) {
-                              print('Tile loading error: $error');
-                              setState(() {
-                                _mapLoadingError = true;
-                              });
+                child:
+                    _mapLoadingError
+                        ? const Center(
+                          child: Text('Lỗi tải bản đồ, vui lòng thử lại'),
+                        )
+                        : FlutterMap(
+                          mapController: _mapController,
+                          options: MapOptions(
+                            initialCenter: _center,
+                            initialZoom: 14.0,
+                            onTap: (tapPosition, point) {
+                              AppRoutes.goTo(context, AppRoutes.map);
                             },
-                            tileProvider: NetworkTileProvider(),
                           ),
-                          MarkerLayer(
-                            markers: _sportsFields.map((field) => Marker(
-                                  point: LatLng(field.lat, field.lng),
-                                  width: 80,
-                                  height: 80,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      _showFieldDetails(context, field);
-                                    },
-                                    child: Icon(
-                                      _getMarkerIcon(field.sportType),
-                                      color: Colors.red,
-                                      size: 40,
-                                    ),
-                                  ),
-                                )).toList(),
-                          ),
-                        ],
-                      ),
+                          children: [
+                            TileLayer(
+                              urlTemplate:
+                                  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              subdomains: const ['a', 'b', 'c'],
+                              errorTileCallback: (tile, error, stackTrace) {
+                                print('Tile loading error: $error');
+                                setState(() {
+                                  _mapLoadingError = true;
+                                });
+                              },
+                              tileProvider: NetworkTileProvider(),
+                            ),
+                            MarkerLayer(
+                              markers:
+                                  _sportsFields
+                                      .map(
+                                        (field) => Marker(
+                                          point: LatLng(field.lat, field.lng),
+                                          width: 80,
+                                          height: 80,
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              _showFieldDetails(context, field);
+                                            },
+                                            child: Icon(
+                                              _getMarkerIcon(field.sportType),
+                                              color: Colors.red,
+                                              size: 40,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                            ),
+                          ],
+                        ),
               ),
               Positioned(
                 bottom: 16,
@@ -348,7 +364,11 @@ class _HomeContentState extends State<HomeContent> {
               _buildSportCategory(Icons.sports_soccer, 'Bóng đá', Colors.green),
               _buildSportCategory(Icons.sports_tennis, 'Cầu lông', Colors.blue),
               _buildSportCategory(Icons.sports_tennis, 'Tennis', Colors.orange),
-              _buildSportCategory(Icons.sports_basketball, 'Bóng rổ', Colors.red),
+              _buildSportCategory(
+                Icons.sports_basketball,
+                'Bóng rổ',
+                Colors.red,
+              ),
             ],
           ),
 
@@ -362,18 +382,22 @@ class _HomeContentState extends State<HomeContent> {
                 'Sân gần bạn',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              TextButton(
-                onPressed: () {},
-                child: const Text('Xem tất cả'),
-              ),
+              TextButton(onPressed: () {}, child: const Text('Xem tất cả')),
             ],
           ),
 
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: 5,
-            itemBuilder: (context, index) => _buildFieldCard(context),
+            itemCount: _sportsFields.isEmpty ? 1 : _sportsFields.length,
+            itemBuilder: (context, index) {
+              if (_sportsFields.isEmpty) {
+                return const Center(
+                  child: Text("Không tìm thấy sân thể thao nào"),
+                );
+              }
+              return _buildFieldCard(context, _sportsFields[index]);
+            },
           ),
         ],
       ),
@@ -393,7 +417,7 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  Widget _buildFieldCard(BuildContext context) {
+  Widget _buildFieldCard(BuildContext context, SportsField field) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -403,8 +427,10 @@ class _HomeContentState extends State<HomeContent> {
             height: 150,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              image: const DecorationImage(
-                image: NetworkImage('https://via.placeholder.com/400x200'),
+              image: DecorationImage(
+                image: NetworkImage(
+                  field.imageUrl ?? 'https://via.placeholder.com/400x200',
+                ),
                 fit: BoxFit.cover,
               ),
             ),
@@ -414,35 +440,42 @@ class _HomeContentState extends State<HomeContent> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Sân bóng đá A1',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Text(
+                  field.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  '100.000 VND/giờ • 5km',
-                  style: TextStyle(color: Colors.grey),
+                Text(
+                  '${field.price?.toStringAsFixed(0) ?? '100.000'} VND/giờ • ${field.distance?.toStringAsFixed(1) ?? '5'}km',
+                  style: TextStyle(color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.star, color: Colors.amber, size: 16),
-                        SizedBox(width: 4),
-                        Text('4.8 (120)'),
+                        const Icon(Icons.star, color: Colors.amber, size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${field.rating?.toStringAsFixed(1) ?? '4.8'} (${field.reviewCount ?? '120'})',
+                        ),
                       ],
                     ),
                     ElevatedButton(
                       onPressed: () {
                         if (_auth.currentUser == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Vui lòng đăng nhập để đặt sân')),
+                            const SnackBar(
+                              content: Text('Vui lòng đăng nhập để đặt sân'),
+                            ),
                           );
                           return;
                         }
-                        AppRoutes.goTo(context, '/booking');
+                        _showFieldDetails(context, field);
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 16),

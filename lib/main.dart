@@ -36,14 +36,7 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: AppRoutes.login,
       routes: AppRoutes.allRoutes,
-      onGenerateRoute: (settings) {
-        return MaterialPageRoute(
-          builder: (_) => Scaffold(
-            appBar: AppBar(title: const Text('Lỗi')),
-            body: const Center(child: Text('Trang không tồn tại')),
-          ),
-        );
-      },
+      onGenerateRoute: AppRoutes.onGenerateRoute, // Sửa lại dòng này
     );
   }
 }
