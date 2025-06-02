@@ -7,6 +7,8 @@ import 'package:do_an_mobile/features/profile/screens/profile_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:do_an_mobile/features/booking_schedule/booking_schedule_screen.dart';
+import 'package:do_an_mobile/features/navbar/nav_screens.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final List<Widget> _screens = [
     HomeContent(),
-    const Center(child: Text('Lịch đặt')),
+    BookingScheduleScreen(),
     ProfileScreen(),
   ];
 
@@ -29,15 +31,44 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar:
           _currentIndex == 0
               ? AppBar(
-                title: const Text('Đặt Sân Thể Thao'),
+                leading: IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => nav_screens()),
+                    );
+                  },
+                ),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.notifications),
+                    icon: const Icon(Icons.search), // Search icon
                     onPressed: () {},
                   ),
                   IconButton(
-                    icon: const Icon(Icons.account_circle),
-                    onPressed: () => setState(() => _currentIndex = 2),
+                    icon: const Icon(Icons.chat_bubble), // Chat bubble
+                    onPressed: () {
+                      // Add chat functionality here if needed
+                      setState(
+                        () => _currentIndex = 1,
+                      ); // Navigate to Lịch đặt as an example
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.notifications), // Bell
+                    onPressed: () {
+                      // Add notification functionality here if needed
+                      setState(
+                        () => _currentIndex = 1,
+                      ); // Navigate to Lịch đặt as an example
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.account_circle), // Person
+                    onPressed:
+                        () => setState(
+                          () => _currentIndex = 2,
+                        ), // Navigate to Tài khoản
                   ),
                 ],
               )
@@ -81,7 +112,6 @@ class _HomeContentState extends State<HomeContent> {
   }
 
   Future<void> _fetchSportsFields() async {
-    
     try {
       print("Đang kết nối tới Firestore...");
       final querySnapshot =
@@ -161,64 +191,65 @@ class _HomeContentState extends State<HomeContent> {
     }
   }
 
- void _showFieldDetails(BuildContext context, SportsField field) {
-  showModalBottomSheet(
-    context: context,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (context) => Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            field.name,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
+  void _showFieldDetails(BuildContext context, SportsField field) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder:
+          (context) => Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  field.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(field.address, style: TextStyle(color: Colors.grey[600])),
+                const SizedBox(height: 8),
+                Text(
+                  'Loại sân: ${field.sportType}',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.star, color: Colors.amber, size: 16),
+                        SizedBox(width: 4),
+                        Text('4.8 (120)'),
+                      ],
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.booking,
+                          arguments: {'field': field},
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      child: const Text('Đặt ngay'),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(field.address, style: TextStyle(color: Colors.grey[600])),
-          const SizedBox(height: 8),
-          Text(
-            'Loại sân: ${field.sportType}',
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.star, color: Colors.amber, size: 16),
-                  SizedBox(width: 4),
-                  Text('4.8 (120)'),
-                ],
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context); // Đóng bottom sheet
-                  Navigator.pushNamed(
-                    context,
-                    AppRoutes.booking,
-                    arguments: {'field': field}, // Truyền dữ liệu sân qua arguments
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-                child: const Text('Đặt ngay'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    ),
-  );
-}
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -233,25 +264,6 @@ class _HomeContentState extends State<HomeContent> {
             decoration: BoxDecoration(
               color: Colors.grey[200],
               borderRadius: BorderRadius.circular(24),
-            ),
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Tìm kiếm sân...',
-                border: InputBorder.none,
-                icon: Icon(Icons.search),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _sportsFields =
-                      _allSportsFields
-                          .where(
-                            (field) => field.name.toLowerCase().contains(
-                              value.toLowerCase(),
-                            ),
-                          )
-                          .toList();
-                });
-              },
             ),
           ),
 
@@ -382,14 +394,27 @@ class _HomeContentState extends State<HomeContent> {
                 'Sân gần bạn',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              TextButton(onPressed: () {}, child: const Text('Xem tất cả')),
+              TextButton(
+                onPressed: () {
+                  Navigator.pushNamed(
+                    context,
+                    '/view_all_fields',
+                    arguments: _sportsFields,
+                  );
+                },
+                child: const Text('Xem tất cả'),
+              ),
             ],
           ),
-
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _sportsFields.isEmpty ? 1 : _sportsFields.length,
+            itemCount:
+                _sportsFields.isEmpty
+                    ? 1
+                    : _sportsFields.length > 5
+                    ? 5
+                    : _sportsFields.length,
             itemBuilder: (context, index) {
               if (_sportsFields.isEmpty) {
                 return const Center(

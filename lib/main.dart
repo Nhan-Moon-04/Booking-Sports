@@ -36,7 +36,7 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: AppRoutes.login,
       routes: AppRoutes.allRoutes,
-      onGenerateRoute: AppRoutes.onGenerateRoute, // Sửa lại dòng này
+      onGenerateRoute: AppRoutes.onGenerateRoute, 
     );
   }
 }

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SportsField {
@@ -45,63 +44,32 @@ class SportsField {
       reviewCount: data['reviewCount'] as int?,
     );
   }
-}
 
-class SportsFieldList extends StatefulWidget {
-  @override
-  _SportsFieldListState createState() => _SportsFieldListState();
-}
-
-class _SportsFieldListState extends State<SportsFieldList> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  List<SportsField> fields = [];
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    fetchSportsFields();
-  }
-
-  Future<void> fetchSportsFields() async {
-    try {
-      final snapshot = await _firestore.collection('SportsField').get();
-      print('Tìm thấy ${snapshot.docs.length} document');
-      final loadedFields = snapshot.docs.map((doc) => SportsField.fromFirestore(doc)).toList();
-
-      setState(() {
-        fields = loadedFields;
-        isLoading = false;
-      });
-    } catch (e) {
-      print('Lỗi khi lấy dữ liệu: $e');
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) return Center(child: CircularProgressIndicator());
-
-    if (fields.isEmpty) return Center(child: Text('Không có dữ liệu sân thể thao'));
-
-    return ListView.builder(
-      itemCount: fields.length,
-      itemBuilder: (context, index) {
-        final field = fields[index];
-        return Card(
-          margin: EdgeInsets.all(8),
-          child: ListTile(
-            title: Text(field.name),
-            subtitle: Text(field.address),
-            leading: field.imageUrl != null
-                ? Image.network(field.imageUrl!, width: 60, height: 60, fit: BoxFit.cover)
-                : SizedBox(width: 60, height: 60, child: Icon(Icons.sports_soccer)),
-          ),
-        );
-      },
+  SportsField copyWith({
+    String? id,
+    String? name,
+    String? address,
+    double? lat,
+    double? lng,
+    String? sportType,
+    String? imageUrl,
+    double? price,
+    double? distance,
+    double? rating,
+    int? reviewCount,
+  }) {
+    return SportsField(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      address: address ?? this.address,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      sportType: sportType ?? this.sportType,
+      imageUrl: imageUrl ?? this.imageUrl,
+      price: price ?? this.price,
+      distance: distance ?? this.distance,
+      rating: rating ?? this.rating,
+      reviewCount: reviewCount ?? this.reviewCount,
     );
   }
 }

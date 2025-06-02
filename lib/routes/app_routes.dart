@@ -7,6 +7,8 @@ import 'package:do_an_mobile/features/profile/screens/profile_screen.dart';
 import 'package:do_an_mobile/features/profile/screens/profile_edit_screen.dart';
 import 'package:do_an_mobile/features/booking/booking_screen.dart';
 import 'package:do_an_mobile/firestore database/sport_fields.dart';
+import 'package:do_an_mobile/features/booking_schedule/booking_schedule_screen.dart';
+import 'package:do_an_mobile/features/home/screens/ViewAllFieldsScreen.dart';
 
 class AppRoutes {
   static const String login = '/login';
@@ -16,6 +18,8 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String profileEdit = '/profile/edit';
   static const String booking = '/booking';
+  static const String schedule = '/booking_schedule';
+  static const String viewAllFields = '/view_all_fields'; // Unique route name
 
   static final Map<String, WidgetBuilder> allRoutes = {
     login: (context) => const LoginScreen(),
@@ -24,6 +28,7 @@ class AppRoutes {
     map: (context) => const MapScreen(),
     profile: (context) => const ProfileScreen(),
     profileEdit: (context) => const ProfileEditScreen(),
+    schedule: (context) => const BookingScheduleScreen(),
   };
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
@@ -35,6 +40,14 @@ class AppRoutes {
         }
         return MaterialPageRoute(
           builder: (_) => BookingScreen(field: args['field'] as SportsField),
+        );
+      case viewAllFields:
+        final args = settings.arguments as List<SportsField>?;
+        if (args == null) {
+          return _errorRoute();
+        }
+        return MaterialPageRoute(
+          builder: (_) => ViewAllFieldsScreen(sportsFields: args),
         );
       default:
         return _errorRoute();
