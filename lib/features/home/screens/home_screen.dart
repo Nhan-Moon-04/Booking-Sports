@@ -3,12 +3,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:do_an_mobile/firestore database/sport_fields.dart';
 import 'package:do_an_mobile/routes/app_routes.dart';
-import 'package:do_an_mobile/features/profile/screens/profile_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:do_an_mobile/features/booking_schedule/booking_schedule_screen.dart';
 import 'package:do_an_mobile/features/navbar/nav_screens.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
+import 'package:do_an_mobile/features/profile/profile_user/profile_user.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,61 +23,52 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _screens = [
     HomeContent(),
     BookingScheduleScreen(),
-    ProfileScreen(),
+    ProfileUserScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar:
-          _currentIndex == 0
-              ? AppBar(
-                leading: IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => nav_screens()),
-                    );
-                  },
+      appBar: _currentIndex == 0
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => nav_screens()),
+                  );
+                },
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () {},
                 ),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.search), // Search icon
-                    onPressed: () {},
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chat_bubble), // Chat bubble
-                    onPressed: () {
-                      // Add chat functionality here if needed
-                      setState(
-                        () => _currentIndex = 1,
-                      ); // Navigate to Lịch đặt as an example
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.notifications), // Bell
-                    onPressed: () {
-                      // Add notification functionality here if needed
-                      setState(
-                        () => _currentIndex = 1,
-                      ); // Navigate to Lịch đặt as an example
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.account_circle), // Person
-                    onPressed:
-                        () => setState(
-                          () => _currentIndex = 2,
-                        ), // Navigate to Tài khoản
-                  ),
-                ],
-              )
-              : null,
+                IconButton(
+                  icon: const Icon(Icons.chat_bubble),
+                  onPressed: () => setState(() => _currentIndex = 1),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.notifications),
+                  onPressed: () => setState(() => _currentIndex = 1),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.account_circle),
+                  onPressed: () => setState(() => _currentIndex = 2),
+                ),
+              ],
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+            )
+          : null,
       body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        selectedItemColor: const Color(0xFF4A90E2),
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Trang chủ'),
           BottomNavigationBarItem(
@@ -114,11 +106,10 @@ class _HomeContentState extends State<HomeContent> {
   Future<void> _fetchSportsFields() async {
     try {
       print("Đang kết nối tới Firestore...");
-      final querySnapshot =
-          await FirebaseFirestore.instance
-              .collection('sports_fields')
-              .limit(10) // Giới hạn số lượng document
-              .get();
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('sports_fields')
+          .limit(10)
+          .get();
 
       print("Nhận được ${querySnapshot.size} documents");
 
@@ -127,11 +118,10 @@ class _HomeContentState extends State<HomeContent> {
         return;
       }
 
-      final fields =
-          querySnapshot.docs.map((doc) {
-            print("Document ID: ${doc.id}");
-            return SportsField.fromFirestore(doc);
-          }).toList();
+      final fields = querySnapshot.docs.map((doc) {
+        print("Document ID: ${doc.id}");
+        return SportsField.fromFirestore(doc);
+      }).toList();
 
       setState(() {
         _allSportsFields = fields;
@@ -146,18 +136,18 @@ class _HomeContentState extends State<HomeContent> {
     }
   }
 
-  IconData _getMarkerIcon(String sportType) {
+  String _getSportIcon(String sportType) {
     switch (sportType) {
       case 'Bóng đá':
-        return Icons.sports_soccer;
+        return 'assets/Icons/football.png';
       case 'Cầu lông':
-        return Icons.sports_tennis;
+        return 'assets/Icons/badminton.png';
       case 'Tennis':
-        return Icons.sports_tennis;
+        return 'assets/Icons/tennis.png';
       case 'Bóng rổ':
-        return Icons.sports_basketball;
+        return 'assets/Icons/basketball.png';
       default:
-        return Icons.sports;
+        return 'assets/Icons/marker.png';
     }
   }
 
@@ -195,269 +185,327 @@ class _HomeContentState extends State<HomeContent> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder:
-          (context) => Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              field.name,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              field.address,
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Loại sân: ${field.sportType}',
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  field.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(field.address, style: TextStyle(color: Colors.grey[600])),
-                const SizedBox(height: 8),
-                Text(
-                  'Loại sân: ${field.sportType}',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.star, color: Colors.amber, size: 16),
-                        SizedBox(width: 4),
-                        Text('4.8 (120)'),
-                      ],
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(
-                          context,
-                          AppRoutes.booking,
-                          arguments: {'field': field},
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      child: const Text('Đặt ngay'),
+                    const Icon(Icons.star, color: Colors.amber, size: 18),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${field.rating?.toStringAsFixed(1) ?? '4.8'} (${field.reviewCount ?? '120'})',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
                     ),
                   ],
                 ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(
+                      context,
+                      AppRoutes.booking,
+                      arguments: {'field': field},
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4A90E2),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Đặt ngay', style: TextStyle(fontSize: 14)),
+                ),
               ],
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSportMarker(BuildContext context, SportsField field) {
+    Color markerColor;
+    switch (field.sportType) {
+      case 'Cầu lông':
+        markerColor = const Color(0xFFF48FB1);
+        break;
+      case 'Bóng đá':
+        markerColor = const Color(0xFFA5D6A7);
+        break;
+      default:
+        markerColor = const Color(0xFF90A4AE);
+    }
+
+    return GestureDetector(
+      onTap: () => _showFieldDetails(context, field),
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: markerColor.withOpacity(0.4),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Image.asset(
+              'assets/Icons/marker.png',
+              width: 50,
+              height: 50,
+              color: markerColor,
+              colorBlendMode: BlendMode.srcIn,
+            ),
+            Image.asset(
+              _getSportIcon(field.sportType),
+              width: 30,
+              height: 30,
+              fit: BoxFit.contain,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Search Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(24),
-            ),
+    return Scaffold(
+      appBar: PreferredSize(preferredSize: Size.zero, child: SizedBox.shrink()),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF4A90E2), Color(0xFF50E3C2)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-
-          const SizedBox(height: 20),
-
-          // Flutter Map
-          Stack(
-            children: [
-              SizedBox(
-                height: 200,
-                child:
-                    _mapLoadingError
-                        ? const Center(
-                          child: Text('Lỗi tải bản đồ, vui lòng thử lại'),
-                        )
-                        : FlutterMap(
-                          mapController: _mapController,
-                          options: MapOptions(
-                            initialCenter: _center,
-                            initialZoom: 14.0,
-                            onTap: (tapPosition, point) {
-                              AppRoutes.goTo(context, AppRoutes.map);
-                            },
-                          ),
+        ),
+        child: _mapLoadingError
+            ? const Center(
+                child: Text(
+                  'Lỗi tải bản đồ, vui lòng thử lại',
+                  style: TextStyle(color: Colors.white, fontSize: 18),
+                ),
+              )
+            : SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        height: 300,
+                        width: double.infinity,
+                        child: Stack(
                           children: [
-                            TileLayer(
-                              urlTemplate:
-                                  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                              subdomains: const ['a', 'b', 'c'],
-                              errorTileCallback: (tile, error, stackTrace) {
-                                print('Tile loading error: $error');
-                                setState(() {
-                                  _mapLoadingError = true;
-                                });
-                              },
-                              tileProvider: NetworkTileProvider(),
-                            ),
-                            MarkerLayer(
-                              markers:
-                                  _sportsFields
-                                      .map(
-                                        (field) => Marker(
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: FlutterMap(
+                                mapController: _mapController,
+                                options: MapOptions(
+                                  initialCenter: _center,
+                                  initialZoom: 14.0,
+                                  onTap: (tapPosition, point) {
+                                    AppRoutes.goTo(
+                                      context,
+                                      AppRoutes.map,
+                                      arguments: _sportsFields,
+                                    );
+                                  },
+                                ),
+                                children: [
+                                  TileLayer(
+                                    urlTemplate:
+                                        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                                    subdomains: const ['a', 'b', 'c', 'd'],
+                                    errorTileCallback: (tile, error, stackTrace) {
+                                      print('Tile loading error: $error');
+                                      setState(() {
+                                        _mapLoadingError = true;
+                                      });
+                                    },
+                                    tileProvider: NetworkTileProvider(),
+                                  ),
+                                  MarkerClusterLayerWidget(
+                                    options: MarkerClusterLayerOptions(
+                                      maxClusterRadius: 45,
+                                      markers: _sportsFields.map((field) {
+                                        return Marker(
                                           point: LatLng(field.lat, field.lng),
-                                          width: 80,
-                                          height: 80,
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              _showFieldDetails(context, field);
-                                            },
-                                            child: Icon(
-                                              _getMarkerIcon(field.sportType),
-                                              color: Colors.red,
-                                              size: 40,
+                                          width: 50,
+                                          height: 50,
+                                          child: _buildSportMarker(
+                                            context,
+                                            field,
+                                          ),
+                                        );
+                                      }).toList(),
+                                      builder: (context, markers) {
+                                        return Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: Colors.pinkAccent.withOpacity(0.8),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              '${markers.length}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      )
-                                      .toList(),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 16,
+                              right: 16,
+                              child: FloatingActionButton(
+                                onPressed: _centerOnUserLocation,
+                                backgroundColor: const Color(0xFF4A90E2),
+                                elevation: 6,
+                                child: const Icon(Icons.my_location, color: Colors.white),
+                              ),
                             ),
                           ],
                         ),
-              ),
-              Positioned(
-                bottom: 16,
-                right: 16,
-                child: FloatingActionButton(
-                  mini: true,
-                  onPressed: _centerOnUserLocation,
-                  child: const Icon(Icons.my_location),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Danh mục thể thao',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 4,
+                        childAspectRatio: 1.0,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        children: [
+                          _buildSportCategory(Icons.sports_soccer, 'Bóng đá', Colors.green),
+                          _buildSportCategory(Icons.sports, 'Cầu lông', Colors.blue),
+                          _buildSportCategory(Icons.sports_tennis, 'Tennis', Colors.orange),
+                          _buildSportCategory(Icons.sports_basketball, 'Bóng rổ', Colors.red),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Sân gần bạn',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pushNamed(
+                                context,
+                                '/view_all_fields',
+                                arguments: _sportsFields,
+                              );
+                            },
+                            child: const Text(
+                              'Xem tất cả',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _sportsFields.isEmpty
+                          ? const Center(
+                              child: Text(
+                                "Không tìm thấy sân thể thao nào",
+                                style: TextStyle(color: Colors.white70, fontSize: 16),
+                              ),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _sportsFields.length > 5 ? 5 : _sportsFields.length,
+                              itemBuilder: (context, index) {
+                                return _buildFieldCard(context, _sportsFields[index]);
+                              },
+                            ),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Danh sách phường
-          const Text(
-            'Các phường gần đây',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 50,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: const [
-                PhuongChip(name: 'PHUONG 8'),
-                PhuongChip(name: 'PHUONG 12'),
-                PhuongChip(name: 'PHUONG 15'),
-                PhuongChip(name: 'PHUONG 16'),
-                PhuongChip(name: 'PHUONG 17'),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Danh mục thể thao
-          const Text(
-            'Danh mục thể thao',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 4,
-            children: [
-              _buildSportCategory(Icons.sports_soccer, 'Bóng đá', Colors.green),
-              _buildSportCategory(Icons.sports_tennis, 'Cầu lông', Colors.blue),
-              _buildSportCategory(Icons.sports_tennis, 'Tennis', Colors.orange),
-              _buildSportCategory(
-                Icons.sports_basketball,
-                'Bóng rổ',
-                Colors.red,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Danh sách sân gần bạn
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Sân gần bạn',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pushNamed(
-                    context,
-                    '/view_all_fields',
-                    arguments: _sportsFields,
-                  );
-                },
-                child: const Text('Xem tất cả'),
-              ),
-            ],
-          ),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount:
-                _sportsFields.isEmpty
-                    ? 1
-                    : _sportsFields.length > 5
-                    ? 5
-                    : _sportsFields.length,
-            itemBuilder: (context, index) {
-              if (_sportsFields.isEmpty) {
-                return const Center(
-                  child: Text("Không tìm thấy sân thể thao nào"),
-                );
-              }
-              return _buildFieldCard(context, _sportsFields[index]);
-            },
-          ),
-        ],
       ),
-    );
-  }
-
-  Widget _buildSportCategory(IconData icon, String name, Color color) {
-    return Column(
-      children: [
-        CircleAvatar(
-          backgroundColor: color.withOpacity(0.2),
-          child: Icon(icon, color: color),
-        ),
-        const SizedBox(height: 5),
-        Text(name, style: const TextStyle(fontSize: 12)),
-      ],
     );
   }
 
   Widget _buildFieldCard(BuildContext context, SportsField field) {
     return Card(
+      elevation: 8,
       margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 150,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              image: DecorationImage(
-                image: NetworkImage(
-                  field.imageUrl ?? 'https://via.placeholder.com/400x200',
-                ),
-                fit: BoxFit.cover,
-              ),
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Image.network(
+              field.imageUrl ?? 'https://via.placeholder.com/400x200',
+              height: 150,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 150,
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.error, color: Colors.red),
+                );
+              },
             ),
           ),
           Padding(
@@ -469,13 +517,14 @@ class _HomeContentState extends State<HomeContent> {
                   field.name,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 18,
+                    color: Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${field.price?.toStringAsFixed(0) ?? '100.000'} VND/giờ • ${field.distance?.toStringAsFixed(1) ?? '5'}km',
-                  style: TextStyle(color: Colors.grey[600]),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -483,10 +532,11 @@ class _HomeContentState extends State<HomeContent> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.star, color: Colors.amber, size: 16),
+                        const Icon(Icons.star, color: Colors.amber, size: 18),
                         const SizedBox(width: 4),
                         Text(
                           '${field.rating?.toStringAsFixed(1) ?? '4.8'} (${field.reviewCount ?? '120'})',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 14),
                         ),
                       ],
                     ),
@@ -496,6 +546,7 @@ class _HomeContentState extends State<HomeContent> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Vui lòng đăng nhập để đặt sân'),
+                              backgroundColor: Colors.red,
                             ),
                           );
                           return;
@@ -503,9 +554,14 @@ class _HomeContentState extends State<HomeContent> {
                         _showFieldDetails(context, field);
                       },
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        backgroundColor: const Color(0xFF4A90E2),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                      child: const Text('Đặt ngay'),
+                      child: const Text('Đặt ngay', style: TextStyle(fontSize: 14)),
                     ),
                   ],
                 ),
@@ -513,6 +569,34 @@ class _HomeContentState extends State<HomeContent> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSportCategory(IconData icon, String name, Color color) {
+    return GestureDetector(
+      onTap: () {
+        // Add filter logic here if needed
+      },
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 25,
+              backgroundColor: color.withOpacity(0.2),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              name,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -526,12 +610,16 @@ class PhuongChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: Colors.white.withOpacity(0.2),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white24),
       ),
-      child: Text(name),
+      child: Text(
+        name,
+        style: const TextStyle(color: Colors.white),
+      ),
     );
   }
 }

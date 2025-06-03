@@ -5,7 +5,8 @@ import 'package:do_an_mobile/firestore database/sport_fields.dart';
 import 'package:do_an_mobile/routes/app_routes.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
+import 'package:do_an_mobile/features/booking_schedule/booking_schedule_screen.dart';
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
 
@@ -18,8 +19,7 @@ class _MapScreenState extends State<MapScreen> {
   final LatLng _center = LatLng(10.762622, 106.660172);
 
   List<SportsField> _allSportsFields = []; // List gốc chưa lọc
-  List<SportsField> _sportsFields = [];    // List hiển thị sau lọc
-
+  List<SportsField> _sportsFields = []; // List hiển thị sau lọc
   bool _mapLoadingError = false;
 
   @override
@@ -30,39 +30,47 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _fetchSportsFields() async {
     try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection('sports_fields').get();
+      print("Đang kết nối tới Firestore...");
+      final querySnapshot =
+          await FirebaseFirestore.instance.collection('sports_fields').limit(10).get();
+
+      print("Nhận được ${querySnapshot.size} documents");
+
+      if (querySnapshot.size == 0) {
+        print("Không tìm thấy sân nào trong database");
+        return;
+      }
+
+      final fields = querySnapshot.docs.map((doc) {
+        print("Document ID: ${doc.id}");
+        return SportsField.fromFirestore(doc);
+      }).toList();
+
       setState(() {
-        _allSportsFields = snapshot.docs.map((doc) {
-          final data = doc.data();
-          return SportsField(
-            id: doc.id,
-            name: data['name'] ?? '',
-            address: data['address'] ?? '',
-            lat: data['lat']?.toDouble() ?? 0.0,
-            lng: data['lng']?.toDouble() ?? 0.0,
-            sportType: data['sportType'] ?? '',
-          );
-        }).toList();
-        _sportsFields = List.from(_allSportsFields); // Copy dữ liệu để hiển thị
+        _allSportsFields = fields;
+        _sportsFields = List.from(_allSportsFields);
       });
-    } catch (e) {
-      print('Error fetching sports fields: $e');
+    } catch (e, stackTrace) {
+      print("Lỗi khi đọc Firestore: $e");
+      print(stackTrace);
+      setState(() {
+        _mapLoadingError = true;
+      });
     }
   }
 
-  IconData _getMarkerIcon(String sportType) {
+  String _getSportIcon(String sportType) {
     switch (sportType) {
       case 'Bóng đá':
-        return Icons.sports_soccer;
+        return 'assets/Icons/football.png';
       case 'Cầu lông':
-        return Icons.sports_tennis;
+        return 'assets/Icons/badminton.png';
       case 'Tennis':
-        return Icons.sports_tennis;
+        return 'assets/Icons/tennis.png';
       case 'Bóng rổ':
-        return Icons.sports_basketball;
+        return 'assets/Icons/basketball.png';
       default:
-        return Icons.sports;
+        return 'assets/Icons/marker.png';
     }
   }
 
@@ -100,10 +108,14 @@ class _MapScreenState extends State<MapScreen> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => Container(
         padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.redAccent,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,18 +123,22 @@ class _MapScreenState extends State<MapScreen> {
             Text(
               field.name,
               style: const TextStyle(
-                fontWeight: FontWeight.bold,
+                color: Colors.white,
                 fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
-            Text(field.address, style: TextStyle(color: Colors.grey[600])),
+            Text(
+              field.address,
+              style: const TextStyle(color: Colors.white),
+            ),
             const SizedBox(height: 8),
             Text(
               'Loại sân: ${field.sportType}',
-              style: TextStyle(color: Colors.grey[600]),
+              style: const TextStyle(color: Colors.white),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -130,19 +146,23 @@ class _MapScreenState extends State<MapScreen> {
                   children: [
                     Icon(Icons.star, color: Colors.amber, size: 16),
                     SizedBox(width: 4),
-                    Text('4.8 (120)'),
+                    Text('4.8 (120)', style: TextStyle(color: Colors.white)),
                   ],
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    AppRoutes.goTo(context, '/booking');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                  child: const Text('Đặt ngay'),
-                ),
+                 ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.booking,
+                          arguments: {'field': field},
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      child: const Text('Đặt ngay'),
+                    ),
               ],
             ),
           ],
@@ -151,14 +171,97 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+ Widget _buildSportMarker(BuildContext context, SportsField field) {
+  // Chọn màu marker theo loại thể thao
+  Color markerColor;
+  switch (field.sportType) {
+    case 'Cầu lông':
+      markerColor = Color(0xFFF48FB1); // Hồng pastel
+      break;
+    case 'Bóng đá':
+      markerColor = Color(0xFFA5D6A7); // Xanh pastel
+      break;
+    default:
+      markerColor = Color(0xFF90A4AE); // Xám pastel
+  }
+
+  return GestureDetector(
+    onTap: () => _showFieldDetails(context, field),
+    child: Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: markerColor.withOpacity(0.4),
+            blurRadius: 6,
+            offset: Offset(2, 2),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Nền marker đổi màu
+          Image.asset(
+            'assets/Icons/marker.png',
+            width: 50,
+            height: 50,
+            color: markerColor,
+            colorBlendMode: BlendMode.srcIn,
+          ),
+          // Biểu tượng thể thao (GIỮ MÀU GỐC, KHÔNG TÔ MÀU)
+          Image.asset(
+            _getSportIcon(field.sportType),
+            width: 30,
+            height: 30,
+            fit: BoxFit.contain,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+
+  Widget _buildNavButton(String label, IconData icon, bool isSelected) {
+    return GestureDetector(
+      onTap: () {
+        // Xử lý khi nhấn nút (có thể thêm logic chuyển tab)
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: isSelected ? Colors.pinkAccent : Colors.grey,
+            size: 24,
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.pinkAccent : Colors.grey,
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bản đồ sân thể thao'),
+        title: const Text(
+          'Bản đồ sân thể thao',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        backgroundColor: Colors.pinkAccent,
+        elevation: 2,
         actions: [
           IconButton(
-            icon: const Icon(Icons.my_location),
+            icon: const Icon(Icons.my_location, color: Colors.white),
             onPressed: _centerOnUserLocation,
           ),
         ],
@@ -166,13 +269,21 @@ class _MapScreenState extends State<MapScreen> {
       body: Stack(
         children: [
           _mapLoadingError
-              ? Center(child: Text('Lỗi tải bản đồ, vui lòng thử lại'))
+              ? const Center(child: Text('Lỗi tải bản đồ, vui lòng thử lại'))
               : FlutterMap(
                   mapController: _mapController,
-                  options: MapOptions(initialCenter: _center, initialZoom: 14.0),
+                  options: MapOptions(
+                    initialCenter: _center,
+                    initialZoom: 14.0,
+                    onPositionChanged: (position, hasGesture) {
+                      // Có thể thêm logic nếu cần
+                    },
+                  ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                      subdomains: const ['a', 'b', 'c', 'd'],
                       errorTileCallback: (tile, error, stackTrace) {
                         print('Tile loading error: $error');
                         setState(() {
@@ -181,26 +292,35 @@ class _MapScreenState extends State<MapScreen> {
                       },
                       tileProvider: NetworkTileProvider(),
                     ),
-                    MarkerLayer(
-                      markers: _sportsFields
-                          .map(
-                            (field) => Marker(
+                    MarkerClusterLayerWidget(
+                      options: MarkerClusterLayerOptions(
+                        maxClusterRadius: 45,
+                        markers: _sportsFields.map((field) => Marker(
                               point: LatLng(field.lat, field.lng),
-                              width: 80,
-                              height: 80,
-                              child: GestureDetector(
-                                onTap: () {
-                                  _showFieldDetails(context, field);
-                                },
-                                child: Icon(
-                                  _getMarkerIcon(field.sportType),
-                                  color: Colors.red,
-                                  size: 40,
+                              width: 50,
+                              height: 50,
+                              child: _buildSportMarker(context, field),
+                            )).toList(),
+                        builder: (context, markers) {
+                          return Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.pinkAccent.withOpacity(0.8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${markers.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
-                          )
-                          .toList(),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -209,15 +329,15 @@ class _MapScreenState extends State<MapScreen> {
             left: 16,
             right: 16,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                    color: Colors.grey.withOpacity(0.4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
@@ -225,7 +345,15 @@ class _MapScreenState extends State<MapScreen> {
                 decoration: InputDecoration(
                   hintText: 'Tìm kiếm sân...',
                   border: InputBorder.none,
-                  icon: const Icon(Icons.search),
+                  icon: const Icon(Icons.search, color: Colors.pinkAccent),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear, color: Colors.pinkAccent),
+                    onPressed: () {
+                      setState(() {
+                        _sportsFields = List.from(_allSportsFields);
+                      });
+                    },
+                  ),
                 ),
                 onChanged: (value) {
                   setState(() {
@@ -233,11 +361,40 @@ class _MapScreenState extends State<MapScreen> {
                       _sportsFields = List.from(_allSportsFields);
                     } else {
                       _sportsFields = _allSportsFields
-                          .where((field) => field.name.toLowerCase().contains(value.toLowerCase()))
+                          .where((field) =>
+                              field.name.toLowerCase().contains(value.toLowerCase()))
                           .toList();
                     }
                   });
                 },
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 16,
+            left: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildNavButton('Bản đồ', Icons.map, true),
+                  _buildNavButton('Tìm bạn', Icons.group, false),
+                  _buildNavButton('Đặt sân', Icons.calendar_today, false),
+                  _buildNavButton('Nổi bật', Icons.star, false),
+                ],
               ),
             ),
           ),
