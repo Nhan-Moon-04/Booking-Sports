@@ -6,6 +6,7 @@ import 'package:do_an_mobile/firestore database/sport_fields.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:convert';
 import 'package:do_an_mobile/Firestore Database/booking.dart';
+
 class BookingScreen extends StatefulWidget {
   final SportsField field;
 
@@ -72,33 +73,31 @@ class _BookingScreenState extends State<BookingScreen> {
               .where('status', whereIn: ['confirmed', 'pending'])
               .get();
 
-      final bookedSlots = <String>[];
+      final Set<String> bookedSlots = {};
+
       for (var doc in querySnapshot.docs) {
         final data = doc.data();
         final startTime = data['startTimeSlot'] as String?;
         final endTime = data['endTimeSlot'] as String?;
 
-        if (startTime != null && endTime != null) {
-          // Thêm tất cả các khung giờ trong khoảng startTime đến endTime
-          final startIndex = _timeSlots.indexWhere(
-            (slot) => slot.startsWith(startTime),
-          );
-          final endIndex = _timeSlots.indexWhere(
-            (slot) => slot.startsWith(endTime.split(' - ')[0]),
-          );
+        if (startTime == null || endTime == null) continue;
 
-          if (startIndex != -1 && endIndex != -1) {
-            for (int i = startIndex; i <= endIndex; i++) {
-              if (!bookedSlots.contains(_timeSlots[i])) {
-                bookedSlots.add(_timeSlots[i]);
-              }
-            }
+        final startIndex = _timeSlots.indexWhere(
+          (slot) => slot.startsWith(startTime),
+        );
+        final endIndex = _timeSlots.indexWhere(
+          (slot) => slot.startsWith(endTime.split(' - ')[0]),
+        );
+
+        if (startIndex != -1 && endIndex != -1) {
+          for (int i = startIndex; i < endIndex; i++) {
+            bookedSlots.add(_timeSlots[i]);
           }
         }
       }
 
       setState(() {
-        _bookedTimeSlots = bookedSlots;
+        _bookedTimeSlots = bookedSlots.toList();
         _isLoadingBookedSlots = false;
       });
     } catch (e) {
@@ -258,13 +257,14 @@ class _BookingScreenState extends State<BookingScreen> {
               TextButton(
                 onPressed: () async {
                   Navigator.of(context).pop();
+                  await _createPendingBooking(); // <- Thêm dòng này
                 },
                 child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
               ),
               ElevatedButton(
                 onPressed: () async {
                   Navigator.of(context).pop();
-                  await _saveBookingToFirestore();
+                  await _saveBookingToFirestore(); // Đã xác nhận thanh toán
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                 child: const Text(
@@ -275,6 +275,89 @@ class _BookingScreenState extends State<BookingScreen> {
             ],
           ),
     );
+  }
+
+  Future<void> _createPendingBooking() async {
+    try {
+      final bookingDateTime =
+          _selectedTimeSlots.isNotEmpty
+              ? DateTime(
+                _selectedDate!.year,
+                _selectedDate!.month,
+                _selectedDate!.day,
+                int.parse(
+                  _selectedTimeSlots.first.split(' - ')[0].split(':')[0],
+                ),
+                int.parse(
+                  _selectedTimeSlots.first.split(' - ')[0].split(':')[1],
+                ),
+              )
+              : DateTime.now();
+
+      final bookingDate = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+      );
+
+      final start = _selectedTimeSlots.first.split(' - ')[0];
+      final end = _selectedTimeSlots.last.split(' - ')[1];
+
+      final booking = Booking(
+        id: _bookingId,
+        userId: _auth.currentUser!.uid,
+        fieldId: widget.field.id,
+        bookingDate: bookingDate,
+        startTimeSlot: start,
+        endTimeSlot: end,
+        bookingDateTime: bookingDateTime,
+        indoorCourt: _indoorCourt,
+        note:
+            _noteController.text +
+            '\nSố khung giờ: ${_selectedTimeSlots.length}',
+        status: 'pending',
+        paymentStatus: "unpaid",
+        amount: widget.field.price! * _selectedTimeSlots.length.toDouble(),
+        paymentMethod: 'qr_code',
+        createdAt: DateTime.now(),
+      );
+
+      await _firestore
+          .collection('users')
+          .doc(_auth.currentUser!.uid)
+          .collection('bookings')
+          .doc(_bookingId)
+          .set(booking.toMap());
+
+      // Đặt hẹn sau 10 phút nếu chưa thanh toán thì hủy
+      Future.delayed(const Duration(minutes: 10), () async {
+        final snapshot =
+            await _firestore
+                .collection('users')
+                .doc(_auth.currentUser!.uid)
+                .collection('bookings')
+                .doc(_bookingId)
+                .get();
+
+        if (snapshot.exists && snapshot.data()?['status'] == 'pending') {
+          await snapshot.reference.update({'status': 'cancelled'});
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Đơn đặt sân đã hết hạn và bị huỷ.'),
+              ),
+            );
+          }
+        }
+      });
+    } catch (e) {
+      print('Error creating pending booking: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi khi tạo đơn pending: $e')));
+      }
+    }
   }
 
   Future<void> _saveBookingToFirestore() async {
@@ -302,7 +385,6 @@ class _BookingScreenState extends State<BookingScreen> {
       );
       final start = _selectedTimeSlots.first.split(' - ')[0];
       final end = _selectedTimeSlots.last.split(' - ')[1];
-
       final booking = Booking(
         id: _bookingId,
         userId: _auth.currentUser!.uid,
@@ -335,6 +417,7 @@ class _BookingScreenState extends State<BookingScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Đặt sân thành công!')));
+        Navigator.pop(context);
       }
     } catch (e) {
       print('Error saving booking: $e');

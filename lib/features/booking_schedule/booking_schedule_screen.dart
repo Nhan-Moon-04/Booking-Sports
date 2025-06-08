@@ -20,42 +20,36 @@ class _BookingScheduleScreenState extends State<BookingScheduleScreen> {
   final List<String> _filterLabels = ['Lịch hôm nay', 'Tất cả', 'Lịch đã hủy'];
 
   Stream<List<Booking>> _fetchBookings() {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return const Stream.empty();
+  final userId = _auth.currentUser?.uid;
+  if (userId == null) return const Stream.empty();
 
-    Query<Map<String, dynamic>> bookingQuery = _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('bookings');
+  Query<Map<String, dynamic>> bookingQuery = _firestore
+      .collection('users')
+      .doc(userId)
+      .collection('bookings');
 
-    final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day); // bỏ phần giờ
 
-    if (_selectedFilterIndex == 0) {
-      // Lịch hôm nay, chỉ lấy confirmed
-      bookingQuery = bookingQuery
-          .where('status', isEqualTo: 'confirmed')
-          .where(
-            'bookingDate',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
-          )
-          .where('bookingDate', isLessThan: Timestamp.fromDate(endOfDay));
-    } else if (_selectedFilterIndex == 1) {
-      // Tất cả lịch (trừ đã hủy)
-      bookingQuery = bookingQuery.where('status', isNotEqualTo: 'cancelled');
-    } else if (_selectedFilterIndex == 2) {
-      // Lịch đã hủy
-      bookingQuery = bookingQuery.where('status', isEqualTo: 'cancelled');
-    }
-
-    // Nếu _selectedFilterIndex == 1 thì lấy tất cả không lọc thêm
-
-    return bookingQuery.snapshots().map(
-      (snapshot) =>
-          snapshot.docs.map((doc) => Booking.fromDocument(doc)).toList(),
-    );
+  if (_selectedFilterIndex == 0) {
+    // Lịch hôm nay: chỉ lấy lịch confirmed và ngày khớp
+    bookingQuery = bookingQuery
+        .where('status', isEqualTo: 'confirmed')
+        .where('bookingDate', isEqualTo: Timestamp.fromDate(today));
+  } else if (_selectedFilterIndex == 1) {
+    // Tất cả lịch (trừ đã hủy)
+    bookingQuery = bookingQuery.where('status', isNotEqualTo: 'cancelled');
+  } else if (_selectedFilterIndex == 2) {
+    // Lịch đã hủy
+    bookingQuery = bookingQuery.where('status', isEqualTo: 'cancelled');
   }
+
+  return bookingQuery.snapshots().map(
+    (snapshot) =>
+        snapshot.docs.map((doc) => Booking.fromDocument(doc)).toList(),
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {

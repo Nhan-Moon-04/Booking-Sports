@@ -468,6 +468,7 @@ class _HomeContentState extends State<HomeContent> {
                     style: TextStyle(color: Colors.white, fontSize: 18),
                   ),
                 )
+                
                 : SingleChildScrollView(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
