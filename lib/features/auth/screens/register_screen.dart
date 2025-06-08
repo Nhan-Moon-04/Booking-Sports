@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:do_an_mobile/routes/app_routes.dart';
@@ -17,59 +18,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
 
   Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Mật khẩu xác nhận không khớp'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+  if (!_formKey.currentState!.validate()) return;
+  if (_passwordController.text != _confirmPasswordController.text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Mật khẩu xác nhận không khớp'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  setState(() => _isLoading = true);
+  try {
+    // Đăng ký tài khoản
+    final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+    );
+
+    // Lưu thêm dữ liệu người dùng vào Firestore
+    final uid = userCredential.user?.uid;
+    if (uid != null) {
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'email': _emailController.text.trim(),
+        'isActive': true, // admin có thể đổi về false để vô hiệu hoá
+        'isOwner': false, // mặc định không phải chủ sân
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     }
 
-    setState(() => _isLoading = true);
-    try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-      if (!mounted) return;
-      AppRoutes.replaceWith(context, AppRoutes.home);
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      String errorMessage;
-      switch (e.code) {
-        case 'email-already-in-use':
-          errorMessage = 'Email đã được sử dụng';
-          break;
-        case 'invalid-email':
-          errorMessage = 'Email không hợp lệ';
-          break;
-        case 'weak-password':
-          errorMessage = 'Mật khẩu quá yếu';
-          break;
-        default:
-          errorMessage = e.message ?? 'Đăng ký thất bại';
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi hệ thống: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    if (!mounted) return;
+    AppRoutes.replaceWith(context, AppRoutes.home);
+  } on FirebaseAuthException catch (e) {
+    if (!mounted) return;
+    String errorMessage;
+    switch (e.code) {
+      case 'email-already-in-use':
+        errorMessage = 'Email đã được sử dụng';
+        break;
+      case 'invalid-email':
+        errorMessage = 'Email không hợp lệ';
+        break;
+      case 'weak-password':
+        errorMessage = 'Mật khẩu quá yếu';
+        break;
+      default:
+        errorMessage = e.message ?? 'Đăng ký thất bại';
     }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(errorMessage),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Lỗi hệ thống: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
   }
+}
+
 
   @override
   void dispose() {

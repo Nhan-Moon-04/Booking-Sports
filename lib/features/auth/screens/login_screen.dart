@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:do_an_mobile/routes/app_routes.dart';
-import 'package:do_an_mobile/features/admin/admin_dashboard_screen.dart';
-
+import 'package:do_an_mobile/features/admin/screens/admin_dashboard_screen.dart';
+import 'package:do_an_mobile/features/owner/FieldOwnerDashboardScreen.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -27,7 +27,9 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       setState(() => _isLoading = true);
-      debugPrint('Bắt đầu quá trình đăng nhập với email: ${_emailController.text.trim()}');
+      debugPrint(
+        'Bắt đầu quá trình đăng nhập với email: ${_emailController.text.trim()}',
+      );
 
       await Future.delayed(const Duration(milliseconds: 50));
 
@@ -38,42 +40,76 @@ class _LoginScreenState extends State<LoginScreen> {
           )
           .timeout(
             const Duration(seconds: 15),
-            onTimeout: () => throw FirebaseAuthException(
-              code: 'timeout',
-              message: 'Kết nối quá lâu. Vui lòng kiểm tra mạng',
-            ),
+            onTimeout:
+                () =>
+                    throw FirebaseAuthException(
+                      code: 'timeout',
+                      message: 'Kết nối quá lâu. Vui lòng kiểm tra mạng',
+                    ),
           );
 
       final userId = userCredential.user?.uid;
       debugPrint('Đăng nhập thành công! UserID: $userId');
 
       // Kiểm tra vai trò admin trong Firestore với debug
-      final adminDoc = await FirebaseFirestore.instance
-          .collection('admins')
-          .doc(userId)
-          .get();
-      
-      debugPrint('Kiểm tra admin: Document exists: ${adminDoc.exists}, Data: ${adminDoc.data()}');
+      final adminDoc =
+          await FirebaseFirestore.instance
+              .collection('admins')
+              .doc(userId)
+              .get();
 
-      if (adminDoc.exists && (adminDoc.data()?['role'] == 'super_admin' || adminDoc.data()?['role'] == 'field_manager')) {
-        // Nếu là admin, điều hướng đến màn hình admin
-        if (!mounted) return;
-        debugPrint('Điều hướng đến AdminDashboardScreen cho UID: $userId');
-        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
-          (route) => false,
-        );
+      debugPrint(
+        'Kiểm tra admin: Document exists: ${adminDoc.exists}, Data: ${adminDoc.data()}',
+      );
+
+      if (!mounted) return;
+
+      if (adminDoc.exists) {
+        final role = adminDoc.data()?['role'];
+
+        switch (role) {
+          case 'super_admin':
+            debugPrint('Điều hướng đến AdminDashboardScreen cho UID: $userId');
+            Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+              (route) => false,
+            );
+            break;
+
+          case 'field_manager':
+            debugPrint(
+              'Điều hướng đến FieldOwnerDashboardScreen cho UID: $userId',
+            );
+            Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (_) => const FieldOwnerDashboardScreen(),
+              ),
+              (route) => false,
+            );
+            break;
+
+          default:
+            debugPrint(
+              'Điều hướng đến HomeScreen (user thường) cho UID: $userId',
+            );
+            Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+              (route) => false,
+            );
+        }
       } else {
-        // Nếu là user bình thường, điều hướng đến HomeScreen
-        if (!mounted) return;
-        debugPrint('Điều hướng đến HomeScreen cho UID: $userId');
+        debugPrint(
+          'Không tìm thấy thông tin người dùng, điều hướng đến HomeScreen',
+        );
         Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
           (route) => false,
         );
       }
     } on FirebaseAuthException catch (e) {
-      debugPrint('LỖI FIREBASE CHI TIẾT: ${e.code} - ${e.message} - ${e.stackTrace?.toString()}');
+      debugPrint(
+        'LỖI FIREBASE CHI TIẾT: ${e.code} - ${e.message} - ${e.stackTrace?.toString()}',
+      );
 
       String errorMessage;
       switch (e.code) {
@@ -113,16 +149,17 @@ class _LoginScreenState extends State<LoginScreen> {
   void _showErrorDialog(BuildContext context, String message) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Lỗi đăng nhập'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Lỗi đăng nhập'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -184,7 +221,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         labelText: 'Email',
                         labelStyle: const TextStyle(color: Colors.grey),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         prefixIcon: const Icon(Icons.email, color: Colors.blue),
                       ),
                       keyboardType: TextInputType.emailAddress,
@@ -204,7 +244,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         labelText: 'Mật khẩu',
                         labelStyle: const TextStyle(color: Colors.grey),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         prefixIcon: const Icon(Icons.lock, color: Colors.blue),
                       ),
                       style: const TextStyle(color: Colors.black87),
@@ -224,25 +267,33 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         elevation: 5,
                       ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                color: Color(0xFF4A90E2),
+                      child:
+                          _isLoading
+                              ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF4A90E2),
+                                ),
+                              )
+                              : const Text(
+                                'Đăng nhập',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            )
-                          : const Text(
-                              'Đăng nhập',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   TextButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () => Navigator.pushNamed(context, AppRoutes.register),
+                    onPressed:
+                        _isLoading
+                            ? null
+                            : () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.register,
+                            ),
                     child: const Text(
                       'Chưa có tài khoản? Đăng ký',
                       style: TextStyle(
