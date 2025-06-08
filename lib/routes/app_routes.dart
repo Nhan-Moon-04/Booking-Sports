@@ -9,6 +9,10 @@ import 'package:do_an_mobile/features/booking/booking_screen.dart';
 import 'package:do_an_mobile/firestore database/sport_fields.dart';
 import 'package:do_an_mobile/features/booking_schedule/booking_schedule_screen.dart';
 import 'package:do_an_mobile/features/home/screens/ViewAllFieldsScreen.dart';
+import 'package:do_an_mobile/features/owner/ManageFieldsScreen.dart';
+import 'package:do_an_mobile/features/owner/FieldDetailScreen.dart';
+import 'package:do_an_mobile/features/owner/Statistics.dart';
+import 'package:do_an_mobile/features/owner/ManagePendingBookingsPage.dart';
 
 class AppRoutes {
   static const String login = '/login';
@@ -19,8 +23,11 @@ class AppRoutes {
   static const String profileEdit = '/profile/edit';
   static const String booking = '/booking';
   static const String schedule = '/booking_schedule';
-  static const String viewAllFields = '/view_all_fields'; // Unique route name
-
+  static const String viewAllFields = '/view_all_fields';
+  static const String manage_fields = '/ManageFieldsScreen';
+  static const String fieldDetail = '/field_detail';
+  static const String statistics = '/owner';
+  static const String manage_bookings = '/owner';
   static final Map<String, WidgetBuilder> allRoutes = {
     login: (context) => const LoginScreen(),
     register: (context) => const RegisterScreen(),
@@ -29,6 +36,14 @@ class AppRoutes {
     profile: (context) => const ProfileScreen(),
     profileEdit: (context) => const ProfileEditScreen(),
     schedule: (context) => const BookingScheduleScreen(),
+    manage_fields: (context) => const ManageFieldsScreen(),
+    statistics: (context) => const StatisticsScreen(),
+    manage_bookings: (context) => const ManageBookingScreen(),
+
+    fieldDetail: (context) {
+      final args = ModalRoute.of(context)!.settings.arguments as String;
+      return FieldDetailScreen(fieldId: args);
+    },
   };
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
@@ -56,22 +71,27 @@ class AppRoutes {
 
   static MaterialPageRoute _errorRoute() {
     return MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Lỗi')),
-        body: const Center(child: Text('Trang không tồn tại')),
-      ),
+      builder:
+          (_) => Scaffold(
+            appBar: AppBar(title: const Text('Lỗi')),
+            body: const Center(child: Text('Trang không tồn tại')),
+          ),
     );
   }
 
-  static Future<void> goTo(BuildContext context, String routeName, {Object? arguments}) async {
-    await Navigator.pushNamed(
-      context,
-      routeName,
-      arguments: arguments,
-    );
+  static Future<void> goTo(
+    BuildContext context,
+    String routeName, {
+    Object? arguments,
+  }) async {
+    await Navigator.pushNamed(context, routeName, arguments: arguments);
   }
 
-  static Future<void> replaceWith(BuildContext context, String routeName, {Object? arguments}) async {
+  static Future<void> replaceWith(
+    BuildContext context,
+    String routeName, {
+    Object? arguments,
+  }) async {
     await Navigator.pushReplacementNamed(
       context,
       routeName,

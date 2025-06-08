@@ -397,7 +397,7 @@ class _BookingScreenState extends State<BookingScreen> {
         note:
             _noteController.text +
             '\nSố khung giờ: ${_selectedTimeSlots.length}',
-        status: 'confirmed',
+        status: 'pending',
         paymentStatus: "paid",
         amount: widget.field.price! * _selectedTimeSlots.length.toDouble(),
         paymentMethod: 'qr_code',

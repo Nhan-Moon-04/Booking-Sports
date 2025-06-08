@@ -3,9 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:do_an_mobile/routes/app_routes.dart';
 import 'package:do_an_mobile/features/home/screens/home_screen.dart';
-import 'package:do_an_mobile/features/content/Owner_Registration.dart';
-import 'package:do_an_mobile/features/content/Referral_Screen.dart';
+import 'package:do_an_mobile/features/content/owner_registration.dart';
+import 'package:do_an_mobile/features/content/referral_screen.dart';
 import 'package:do_an_mobile/features/content/introduction.dart';
+import 'package:do_an_mobile/features/owner/FieldOwnerDashboardScreen.dart';
 
 class ProfileUserScreen extends StatefulWidget {
   const ProfileUserScreen({super.key});
@@ -84,6 +85,52 @@ class _ProfileUserScreenState extends State<ProfileUserScreen> {
     );
   }
 
+  Future<void> _handleOwnerRegistration() async {
+    if (_user == null) {
+      debugPrint('Không có người dùng đăng nhập');
+      return;
+    }
+
+    final userId = _user!.uid;
+    debugPrint('Kiểm tra tài khoản với UID: $userId');
+
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        final userData = userDoc.data() as Map<String, dynamic>;
+        final isOwner = userData['isOwner'] as bool? ?? false;
+        debugPrint('Giá trị isOwner: $isOwner');
+
+        if (isOwner) {
+          if (!mounted) return;
+          debugPrint('Điều hướng đến FieldOwnerDashboardScreen');
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const FieldOwnerDashboardScreen()),
+          );
+        } else {
+          if (!mounted) return;
+          debugPrint('Điều hướng đến OwnerRegistrationScreen');
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => OwnerRegistrationScreen()),
+          );
+        }
+      } else {
+        debugPrint('Document không tồn tại cho UID: $userId');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không tìm thấy thông tin người dùng!')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Lỗi khi truy vấn Firestore: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -117,7 +164,6 @@ class _ProfileUserScreenState extends State<ProfileUserScreen> {
                 color: Colors.white,
                 child: Row(
                   children: [
-                    // Nút back riêng biệt
                     IconButton(
                       icon: const Icon(Icons.arrow_back, color: Colors.black),
                       onPressed: () {
@@ -127,10 +173,7 @@ class _ProfileUserScreenState extends State<ProfileUserScreen> {
                         );
                       },
                     ),
-
                     const SizedBox(width: 8),
-
-                    // Avatar + tên + email bọc GestureDetector riêng
                     GestureDetector(
                       onTap: () {
                         Navigator.pushNamed(context, AppRoutes.profile);
@@ -147,10 +190,10 @@ class _ProfileUserScreenState extends State<ProfileUserScreen> {
                             child:
                                 avatarUrl.isEmpty
                                     ? const Icon(
-                                      Icons.person,
-                                      size: 24,
-                                      color: Colors.white,
-                                    )
+                                        Icons.person,
+                                        size: 24,
+                                        color: Colors.white,
+                                      )
                                     : null,
                           ),
                           const SizedBox(width: 12),
@@ -176,8 +219,6 @@ class _ProfileUserScreenState extends State<ProfileUserScreen> {
                         ],
                       ),
                     ),
-
-                    // Đẩy nút logout ra ngoài cùng bên phải
                     const Spacer(),
                     IconButton(
                       icon: const Icon(
@@ -195,7 +236,7 @@ class _ProfileUserScreenState extends State<ProfileUserScreen> {
                 child: Column(
                   children: [
                     _buildMenuItem('Giới thiệu bạn bè & nhận quà', () {
-                        Navigator.push(
+                      Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => IntroductionScreen(),
@@ -210,7 +251,6 @@ class _ProfileUserScreenState extends State<ProfileUserScreen> {
                         ),
                       );
                     }),
-
                     _buildMenuItem('Điều khoản và điều kiện', () {
                       Navigator.push(
                         context,
@@ -220,14 +260,7 @@ class _ProfileUserScreenState extends State<ProfileUserScreen> {
                       );
                     }),
                     _buildMenuItem('Vé chúc tồi', () {}),
-                    _buildMenuItem('Đăng ký làm chủ sân', () {
-                        Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => OwnerRegistrationScreen(),
-                        ),
-                      );
-                    }),
+                    _buildMenuItem('Đăng ký làm chủ sân', _handleOwnerRegistration),
                     _buildMenuItem('Đăng xuất', _signOut),
                   ],
                 ),
