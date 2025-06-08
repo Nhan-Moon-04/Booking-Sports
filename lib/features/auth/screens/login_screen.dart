@@ -1,7 +1,9 @@
 import 'package:do_an_mobile/features/home/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:do_an_mobile/routes/app_routes.dart';
+import 'package:do_an_mobile/features/admin/admin_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       setState(() => _isLoading = true);
-      debugPrint('Bắt đầu quá trình đăng nhập');
+      debugPrint('Bắt đầu quá trình đăng nhập với email: ${_emailController.text.trim()}');
 
       await Future.delayed(const Duration(milliseconds: 50));
 
@@ -42,16 +44,36 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
 
-      debugPrint('Đăng nhập thành công! UserID: ${userCredential.user?.uid}');
+      final userId = userCredential.user?.uid;
+      debugPrint('Đăng nhập thành công! UserID: $userId');
 
-      if (!mounted) return;
+      // Kiểm tra vai trò admin trong Firestore với debug
+      final adminDoc = await FirebaseFirestore.instance
+          .collection('admins')
+          .doc(userId)
+          .get();
+      
+      debugPrint('Kiểm tra admin: Document exists: ${adminDoc.exists}, Data: ${adminDoc.data()}');
 
-      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-        (route) => false,
-      );
+      if (adminDoc.exists && (adminDoc.data()?['role'] == 'super_admin' || adminDoc.data()?['role'] == 'field_manager')) {
+        // Nếu là admin, điều hướng đến màn hình admin
+        if (!mounted) return;
+        debugPrint('Điều hướng đến AdminDashboardScreen cho UID: $userId');
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+          (route) => false,
+        );
+      } else {
+        // Nếu là user bình thường, điều hướng đến HomeScreen
+        if (!mounted) return;
+        debugPrint('Điều hướng đến HomeScreen cho UID: $userId');
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      }
     } on FirebaseAuthException catch (e) {
-      debugPrint('LỖI FIREBASE: ${e.code} - ${e.message}');
+      debugPrint('LỖI FIREBASE CHI TIẾT: ${e.code} - ${e.message} - ${e.stackTrace?.toString()}');
 
       String errorMessage;
       switch (e.code) {
@@ -66,6 +88,9 @@ class _LoginScreenState extends State<LoginScreen> {
           break;
         case 'wrong-password':
           errorMessage = 'Sai mật khẩu';
+          break;
+        case 'invalid-credential':
+          errorMessage = 'Thông tin đăng nhập không hợp lệ hoặc đã hết hạn';
           break;
         case 'network-request-failed':
           errorMessage = 'Lỗi kết nối mạng';
@@ -126,7 +151,6 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Logo hoặc tiêu đề
                   const Icon(
                     Icons.sports_tennis,
                     size: 100,
@@ -149,8 +173,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 40),
-
-                  // Email Field
                   Card(
                     elevation: 8,
                     shape: RoundedRectangleBorder(
@@ -170,8 +192,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // Password Field
                   Card(
                     elevation: 8,
                     shape: RoundedRectangleBorder(
@@ -191,8 +211,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // Login Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -221,8 +239,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // Register Button
                   TextButton(
                     onPressed: _isLoading
                         ? null
