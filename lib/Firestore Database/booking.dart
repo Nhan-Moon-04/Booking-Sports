@@ -5,7 +5,8 @@ class Booking {
   final String userId;
   final String fieldId;
   final DateTime bookingDate;
-  final String timeSlot;
+  final String startTimeSlot;
+  final String endTimeSlot;
   final DateTime bookingDateTime;
   final bool indoorCourt;
   final String note;
@@ -20,7 +21,8 @@ class Booking {
     required this.userId,
     required this.fieldId,
     required this.bookingDate,
-    required this.timeSlot,
+    required this.startTimeSlot,
+    required this.endTimeSlot,
     required this.bookingDateTime,
     required this.indoorCourt,
     required this.note,
@@ -31,14 +33,14 @@ class Booking {
     required this.createdAt,
   });
 
-  // Convert model to Map for Firestore
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'userId': userId,
       'fieldId': fieldId,
       'bookingDate': bookingDate,
-      'timeSlot': timeSlot,
+      'startTimeSlot': startTimeSlot,
+      'endTimeSlot': endTimeSlot,
       'bookingDateTime': bookingDateTime,
       'indoorCourt': indoorCourt,
       'note': note,
@@ -50,7 +52,6 @@ class Booking {
     };
   }
 
-  // Create model from Firestore document
   factory Booking.fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Booking(
@@ -58,7 +59,8 @@ class Booking {
       userId: data['userId'] ?? '',
       fieldId: data['fieldId'] ?? '',
       bookingDate: (data['bookingDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      timeSlot: data['timeSlot'] ?? '',
+      startTimeSlot: data['startTimeSlot'] ?? '',
+      endTimeSlot: data['endTimeSlot'] ?? '',
       bookingDateTime: (data['bookingDateTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
       indoorCourt: data['indoorCourt'] ?? false,
       note: data['note'] ?? '',
@@ -70,7 +72,6 @@ class Booking {
     );
   }
 
-  // Create model from a Map (used for array entries)
   factory Booking.fromMap(Map<String, dynamic>? data) {
     if (data == null) {
       return Booking(
@@ -78,7 +79,8 @@ class Booking {
         userId: '',
         fieldId: '',
         bookingDate: DateTime.now(),
-        timeSlot: '',
+        startTimeSlot: '',
+        endTimeSlot: '',
         bookingDateTime: DateTime.now(),
         indoorCourt: false,
         note: '',
@@ -110,7 +112,8 @@ class Booking {
       userId: data['userId']?.toString() ?? '',
       fieldId: data['fieldId']?.toString() ?? '',
       bookingDate: parseDate(data['bookingDate']),
-      timeSlot: data['timeSlot']?.toString() ?? '',
+      startTimeSlot: data['startTimeSlot']?.toString() ?? '',
+      endTimeSlot: data['endTimeSlot']?.toString() ?? '',
       bookingDateTime: parseDate(data['bookingDateTime']),
       indoorCourt: data['indoorCourt'] as bool? ?? false,
       note: data['note']?.toString() ?? '',
@@ -127,7 +130,8 @@ class Booking {
     String? userId,
     String? fieldId,
     DateTime? bookingDate,
-    String? timeSlot,
+    String? startTimeSlot,
+    String? endTimeSlot,
     DateTime? bookingDateTime,
     bool? indoorCourt,
     String? note,
@@ -142,7 +146,8 @@ class Booking {
       userId: userId ?? this.userId,
       fieldId: fieldId ?? this.fieldId,
       bookingDate: bookingDate ?? this.bookingDate,
-      timeSlot: timeSlot ?? this.timeSlot,
+      startTimeSlot: startTimeSlot ?? this.startTimeSlot,
+      endTimeSlot: endTimeSlot ?? this.endTimeSlot,
       bookingDateTime: bookingDateTime ?? this.bookingDateTime,
       indoorCourt: indoorCourt ?? this.indoorCourt,
       note: note ?? this.note,

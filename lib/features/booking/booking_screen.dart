@@ -6,7 +6,6 @@ import 'package:do_an_mobile/firestore database/sport_fields.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:convert';
 import 'package:do_an_mobile/Firestore Database/booking.dart';
-
 class BookingScreen extends StatefulWidget {
   final SportsField field;
 
@@ -59,84 +58,108 @@ class _BookingScreenState extends State<BookingScreen> {
     });
 
     try {
-      // Chuẩn hóa ngày để so sánh (bỏ giờ, phút, giây)
       final selectedDate = DateTime(
         _selectedDate!.year,
         _selectedDate!.month,
         _selectedDate!.day,
       );
 
-      print('Fetching booked time slots for fieldId: ${widget.field.id}, date: $selectedDate');
+      final querySnapshot =
+          await _firestore
+              .collectionGroup('bookings')
+              .where('fieldId', isEqualTo: widget.field.id)
+              .where('bookingDate', isEqualTo: Timestamp.fromDate(selectedDate))
+              .where('status', whereIn: ['confirmed', 'pending'])
+              .get();
 
-      final querySnapshot = await _firestore
-          .collectionGroup('bookings')
-          .where('fieldId', isEqualTo: widget.field.id)
-          .where('bookingDate', isEqualTo: Timestamp.fromDate(selectedDate))
-          .where('status', whereIn: ['confirmed', 'pending'])
-          .get();
-
-      print('Found ${querySnapshot.docs.length} bookings');
-
-      final bookedSlots = <String>{};
+      final bookedSlots = <String>[];
       for (var doc in querySnapshot.docs) {
         final data = doc.data();
-        print('Booking data: $data');
-        final timeSlot = data['timeSlot'] as String;
-        final slots = timeSlot.split(', ').map((slot) => slot.trim()).toList();
-        bookedSlots.addAll(slots);
+        final startTime = data['startTimeSlot'] as String?;
+        final endTime = data['endTimeSlot'] as String?;
+
+        if (startTime != null && endTime != null) {
+          // Thêm tất cả các khung giờ trong khoảng startTime đến endTime
+          final startIndex = _timeSlots.indexWhere(
+            (slot) => slot.startsWith(startTime),
+          );
+          final endIndex = _timeSlots.indexWhere(
+            (slot) => slot.startsWith(endTime.split(' - ')[0]),
+          );
+
+          if (startIndex != -1 && endIndex != -1) {
+            for (int i = startIndex; i <= endIndex; i++) {
+              if (!bookedSlots.contains(_timeSlots[i])) {
+                bookedSlots.add(_timeSlots[i]);
+              }
+            }
+          }
+        }
       }
 
       setState(() {
-        _bookedTimeSlots = bookedSlots.toList();
+        _bookedTimeSlots = bookedSlots;
         _isLoadingBookedSlots = false;
       });
-
-      print('Booked time slots: $_bookedTimeSlots');
     } catch (e) {
       setState(() {
         _isLoadingBookedSlots = false;
       });
-      print('Error fetching booked time slots: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi khi kiểm tra khung giờ: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi khi kiểm tra khung giờ: $e')));
     }
   }
 
   void _selectTimeSlots(String timeSlot) {
+    // Nếu khung giờ đã được đặt thì không làm gì
     if (_bookedTimeSlots.contains(timeSlot)) return;
 
     setState(() {
       if (_selectedTimeSlots.contains(timeSlot)) {
+        // Nếu đã chọn thì bỏ chọn
         _selectedTimeSlots.clear();
         _startTimeSlot = null;
         _endTimeSlot = null;
       } else {
         if (_startTimeSlot == null) {
+          // Bắt đầu chọn khung giờ
           _startTimeSlot = timeSlot;
           _selectedTimeSlots = [timeSlot];
         } else if (_endTimeSlot == null) {
+          // Kết thúc chọn khung giờ
           _endTimeSlot = timeSlot;
           final startIndex = _timeSlots.indexOf(_startTimeSlot!);
           final endIndex = _timeSlots.indexOf(_endTimeSlot!);
 
+          // Xác định khoảng giữa start và end
           final minIndex = startIndex < endIndex ? startIndex : endIndex;
           final maxIndex = startIndex < endIndex ? endIndex : startIndex;
 
+          // Lấy tất cả các khung giờ trong khoảng
           final slotsInRange = _timeSlots.sublist(minIndex, maxIndex + 1);
-          final hasBookedSlot = slotsInRange.any((slot) => _bookedTimeSlots.contains(slot));
+
+          // Kiểm tra xem có khung giờ nào đã được đặt không
+          final hasBookedSlot = slotsInRange.any(
+            (slot) => _bookedTimeSlots.contains(slot),
+          );
 
           if (!hasBookedSlot) {
+            // Nếu không có khung giờ nào bị đặt thì chọn tất cả
             _selectedTimeSlots = slotsInRange;
           } else {
+            // Nếu có khung giờ bị đặt thì thông báo và reset
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Không thể chọn khung giờ đã được đặt!')),
+              const SnackBar(
+                content: Text('Khung giờ đã được đặt, vui lòng chọn lại!'),
+              ),
             );
             _startTimeSlot = timeSlot;
             _endTimeSlot = null;
             _selectedTimeSlots = [timeSlot];
           }
         } else {
+          // Nếu đã có cả start và end thì reset và chọn lại từ đầu
           _startTimeSlot = timeSlot;
           _endTimeSlot = null;
           _selectedTimeSlots = [timeSlot];
@@ -146,16 +169,21 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Booking get currentBooking {
-    final timeSlot = _selectedTimeSlots.isNotEmpty ? _selectedTimeSlots.first : _timeSlots[0];
+    final timeSlot =
+        _selectedTimeSlots.isNotEmpty
+            ? _selectedTimeSlots.first
+            : _timeSlots[0];
     return Booking(
       id: _bookingId,
       userId: _auth.currentUser?.uid ?? 'unknown_user',
       fieldId: widget.field.id,
       bookingDate: _selectedDate ?? DateTime.now(),
-      timeSlot: timeSlot,
+      startTimeSlot: timeSlot,
+      endTimeSlot: timeSlot,
       bookingDateTime: DateTime.now(),
       indoorCourt: _indoorCourt,
-      note: _noteController.text + '\nSố khung giờ: ${_selectedTimeSlots.length}',
+      note:
+          _noteController.text + '\nSố khung giờ: ${_selectedTimeSlots.length}',
       status: 'pending',
       paymentStatus: 'unpaid',
       amount: widget.field.price! * _selectedTimeSlots.length.toDouble(),
@@ -179,76 +207,92 @@ class _BookingScreenState extends State<BookingScreen> {
     return showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Thanh toán qua QR Code', textAlign: TextAlign.center),
-        content: SizedBox(
-          width: 300,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: SizedBox(
-                  height: 200,
-                  width: 200,
-                  child: QrImageView(
-                    data: _paymentData,
-                    version: QrVersions.auto,
-                    size: 200,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Thanh toán qua QR Code',
+              textAlign: TextAlign.center,
+            ),
+            content: SizedBox(
+              width: 300,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: SizedBox(
+                      height: 200,
+                      width: 200,
+                      child: QrImageView(
+                        data: _paymentData,
+                        version: QrVersions.auto,
+                        size: 200,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Số tiền: ${NumberFormat('#,###').format(widget.field.price! * _selectedTimeSlots.length)} VND',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Quét mã QR để thanh toán',
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Số tiền: ${NumberFormat('#,###').format(widget.field.price! * _selectedTimeSlots.length)} VND',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Quét mã QR để thanh toán',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
-                textAlign: TextAlign.center,
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await _saveBookingToFirestore();
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                child: const Text(
+                  'Xác nhận thanh toán',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await _saveBookingToFirestore();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('Xác nhận thanh toán', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 
   Future<void> _saveBookingToFirestore() async {
     try {
-      final bookingDateTime = _selectedTimeSlots.isNotEmpty
-          ? DateTime(
-              _selectedDate!.year,
-              _selectedDate!.month,
-              _selectedDate!.day,
-              int.parse(_selectedTimeSlots.first.split(' - ')[0].split(':')[0]),
-              int.parse(_selectedTimeSlots.first.split(' - ')[0].split(':')[1]),
-            )
-          : DateTime.now();
+      final bookingDateTime =
+          _selectedTimeSlots.isNotEmpty
+              ? DateTime(
+                _selectedDate!.year,
+                _selectedDate!.month,
+                _selectedDate!.day,
+                int.parse(
+                  _selectedTimeSlots.first.split(' - ')[0].split(':')[0],
+                ),
+                int.parse(
+                  _selectedTimeSlots.first.split(' - ')[0].split(':')[1],
+                ),
+              )
+              : DateTime.now();
 
       // Chuẩn hóa bookingDate để chỉ chứa ngày
       final bookingDate = DateTime(
@@ -256,18 +300,23 @@ class _BookingScreenState extends State<BookingScreen> {
         _selectedDate!.month,
         _selectedDate!.day,
       );
+      final start = _selectedTimeSlots.first.split(' - ')[0];
+      final end = _selectedTimeSlots.last.split(' - ')[1];
 
       final booking = Booking(
         id: _bookingId,
         userId: _auth.currentUser!.uid,
         fieldId: widget.field.id,
         bookingDate: bookingDate, // Lưu chỉ ngày
-        timeSlot: _selectedTimeSlots.join(', '),
+        startTimeSlot: start,
+        endTimeSlot: end,
         bookingDateTime: bookingDateTime,
         indoorCourt: _indoorCourt,
-        note: _noteController.text + '\nSố khung giờ: ${_selectedTimeSlots.length}',
+        note:
+            _noteController.text +
+            '\nSố khung giờ: ${_selectedTimeSlots.length}',
         status: 'confirmed',
-        paymentStatus: 'paid',
+        paymentStatus: "paid",
         amount: widget.field.price! * _selectedTimeSlots.length.toDouble(),
         paymentMethod: 'qr_code',
         createdAt: DateTime.now(),
@@ -283,17 +332,16 @@ class _BookingScreenState extends State<BookingScreen> {
           .set(booking.toMap());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đặt sân thành công!')),
-        );
-        Navigator.pop(context);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Đặt sân thành công!')));
       }
     } catch (e) {
       print('Error saving booking: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi khi đặt sân: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi khi đặt sân: $e')));
       }
     }
   }
@@ -314,10 +362,14 @@ class _BookingScreenState extends State<BookingScreen> {
     }
 
     await _fetchBookedTimeSlots();
-    final hasBookedSlot = _selectedTimeSlots.any((slot) => _bookedTimeSlots.contains(slot));
+    final hasBookedSlot = _selectedTimeSlots.any(
+      (slot) => _bookedTimeSlots.contains(slot),
+    );
     if (hasBookedSlot) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Khung giờ đã được đặt, vui lòng chọn lại!')),
+        const SnackBar(
+          content: Text('Khung giờ đã được đặt, vui lòng chọn lại!'),
+        ),
       );
       setState(() {
         _selectedTimeSlots.clear();
@@ -331,103 +383,115 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _buildDaySelector() {
-  final now = DateTime.now(); // Hiện tại là 04/06/2025, Thứ 4
-  final days = List.generate(5, (index) => now.add(Duration(days: index)));
+    final now = DateTime.now(); // Hiện tại là 04/06/2025, Thứ 4
+    final days = List.generate(5, (index) => now.add(Duration(days: index)));
 
-  // Hàm chuyển đổi số weekday thành tên ngày tiếng Việt
-  String getVietnameseDay(int weekday) {
-    switch (weekday) {
-      case 1:
-        return "Thứ 2";
-      case 2:
-        return "Thứ 3";
-      case 3:
-        return "Thứ 4";
-      case 4:
-        return "Thứ 5";
-      case 5:
-        return "Thứ 6";
-      case 6:
-        return "Thứ 7";
-      case 7:
-        return "Chủ nhật";
-      default:
-        return "Không xác định";
+    // Hàm chuyển đổi số weekday thành tên ngày tiếng Việt
+    String getVietnameseDay(int weekday) {
+      switch (weekday) {
+        case 1:
+          return "Thứ 2";
+        case 2:
+          return "Thứ 3";
+        case 3:
+          return "Thứ 4";
+        case 4:
+          return "Thứ 5";
+        case 5:
+          return "Thứ 6";
+        case 6:
+          return "Thứ 7";
+        case 7:
+          return "Chủ nhật";
+        default:
+          return "Không xác định";
+      }
     }
-  }
 
-  return Card(
-    elevation: 4,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Chọn ngày',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: days.map((day) {
-              final isSelected = _selectedDate != null &&
-                  _selectedDate!.day == day.day &&
-                  _selectedDate!.month == day.month &&
-                  _selectedDate!.year == day.year;
-              return GestureDetector(
-                onTap: () => setState(() {
-                  _selectedDate = day;
-                  _selectedTimeSlots.clear();
-                  _startTimeSlot = null;
-                  _endTimeSlot = null;
-                  _fetchBookedTimeSlots();
-                }),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? LinearGradient(colors: [Colors.blue, Colors.lightBlue])
-                        : null,
-                    borderRadius: BorderRadius.circular(8),
-                    border: isSelected ? null : Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Tháng ${day.month}', // Hiển thị "Tháng 6" thay vì "Th6"
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isSelected ? Colors.white : Colors.grey,
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Chọn ngày',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children:
+                  days.map((day) {
+                    final isSelected =
+                        _selectedDate != null &&
+                        _selectedDate!.day == day.day &&
+                        _selectedDate!.month == day.month &&
+                        _selectedDate!.year == day.year;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedDate = day;
+                          _selectedTimeSlots.clear();
+                          _startTimeSlot = null;
+                          _endTimeSlot = null;
+                        });
+                        _fetchBookedTimeSlots(); // Gọi hàm fetch khi chọn ngày mới
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient:
+                              isSelected
+                                  ? LinearGradient(
+                                    colors: [Colors.blue, Colors.lightBlue],
+                                  )
+                                  : null,
+                          borderRadius: BorderRadius.circular(8),
+                          border:
+                              isSelected
+                                  ? null
+                                  : Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Tháng ${day.month}', // Hiển thị "Tháng 6" thay vì "Th6"
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isSelected ? Colors.white : Colors.grey,
+                              ),
+                            ),
+                            Text(
+                              '${day.day}',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            Text(
+                              getVietnameseDay(
+                                day.weekday,
+                              ), // Hiển thị ngày trong tuần đúng
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isSelected ? Colors.white : Colors.grey,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Text(
-                        '${day.day}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      Text(
-                        getVietnameseDay(day.weekday), // Hiển thị ngày trong tuần đúng
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isSelected ? Colors.white : Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
+                    );
+                  }).toList(),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -452,7 +516,9 @@ class _BookingScreenState extends State<BookingScreen> {
           children: [
             Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -479,7 +545,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
             Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -487,14 +555,20 @@ class _BookingScreenState extends State<BookingScreen> {
                   children: [
                     const Text(
                       'Thông tin sân',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         const Icon(Icons.sports, color: Colors.blue),
                         const SizedBox(width: 8),
-                        Text(widget.field.sportType, style: const TextStyle(fontSize: 16)),
+                        Text(
+                          widget.field.sportType,
+                          style: const TextStyle(fontSize: 16),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -502,9 +576,13 @@ class _BookingScreenState extends State<BookingScreen> {
                       children: [
                         Checkbox(
                           value: _indoorCourt,
-                          onChanged: (value) => setState(() => _indoorCourt = value!),
+                          onChanged:
+                              (value) => setState(() => _indoorCourt = value!),
                         ),
-                        const Text('Sân trong nhà', style: TextStyle(fontSize: 16)),
+                        const Text(
+                          'Sân trong nhà',
+                          style: TextStyle(fontSize: 16),
+                        ),
                       ],
                     ),
                   ],
@@ -518,7 +596,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
             Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
@@ -526,70 +606,92 @@ class _BookingScreenState extends State<BookingScreen> {
                   children: [
                     const Text(
                       'Chọn khung giờ',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     _isLoadingBookedSlots
                         ? const Center(child: CircularProgressIndicator())
                         : GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 3,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
-                            ),
-                            itemCount: _timeSlots.length,
-                            itemBuilder: (context, index) {
-                              final timeSlot = _timeSlots[index];
-                              final isSelected = _selectedTimeSlots.contains(timeSlot);
-                              final isBooked = _bookedTimeSlots.contains(timeSlot);
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 3,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                              ),
+                          itemCount: _timeSlots.length,
+                          itemBuilder: (context, index) {
+                            final timeSlot = _timeSlots[index];
+                            final isSelected = _selectedTimeSlots.contains(
+                              timeSlot,
+                            );
+                            final isBooked = _bookedTimeSlots.contains(
+                              timeSlot,
+                            );
 
-                              return GestureDetector(
-                                onTap: isBooked ? null : () => _selectTimeSlots(timeSlot),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: isSelected
-                                        ? LinearGradient(
-                                            colors: [Colors.blue, Colors.lightBlue],
+                            return GestureDetector(
+                              onTap:
+                                  isBooked
+                                      ? null
+                                      : () => _selectTimeSlots(timeSlot),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient:
+                                      isSelected
+                                          ? LinearGradient(
+                                            colors: [
+                                              Colors.blue,
+                                              Colors.lightBlue,
+                                            ],
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
                                           )
-                                        : null,
-                                    color: isBooked
-                                        ? Colors.grey[300]
-                                        : isSelected
-                                            ? null
-                                            : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey.shade300),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.grey.withOpacity(0.2),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                                          : null,
+                                  color:
+                                      isBooked
+                                          ? Colors.grey[300]
+                                          : isSelected
+                                          ? null
+                                          : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color:
+                                        isBooked
+                                            ? Colors.grey
+                                            : Colors.grey.shade300,
                                   ),
-                                  child: Center(
-                                    child: Text(
-                                      timeSlot,
-                                      style: TextStyle(
-                                        color: isBooked
-                                            ? Colors.grey[600]
-                                            : isSelected
-                                                ? Colors.white
-                                                : Colors.black,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.2),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    timeSlot,
+                                    style: TextStyle(
+                                      color:
+                                          isBooked
+                                              ? Colors.grey[600]
+                                              : isSelected
+                                              ? Colors.white
+                                              : Colors.black,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
                                     ),
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          },
+                        ),
                   ],
                 ),
               ),
@@ -598,7 +700,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
             Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -606,14 +710,19 @@ class _BookingScreenState extends State<BookingScreen> {
                   children: [
                     const Text(
                       'Ghi chú',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _noteController,
                       decoration: InputDecoration(
                         hintText: 'Ghi chú cho đơn hàng...',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         filled: true,
                         fillColor: Colors.grey[100],
                       ),
@@ -627,7 +736,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
             Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -635,7 +746,10 @@ class _BookingScreenState extends State<BookingScreen> {
                   children: [
                     const Text(
                       'Thành tiền',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -679,7 +793,9 @@ class _BookingScreenState extends State<BookingScreen> {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       side: const BorderSide(color: Colors.red),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     child: const Text(
                       'HỦY',
@@ -694,7 +810,9 @@ class _BookingScreenState extends State<BookingScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     child: const Text(
                       'ĐẶT LỊCH',

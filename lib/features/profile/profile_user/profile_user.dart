@@ -3,6 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:do_an_mobile/routes/app_routes.dart';
 import 'package:do_an_mobile/features/home/screens/home_screen.dart';
+import 'package:do_an_mobile/features/content/Owner_Registration.dart';
+import 'package:do_an_mobile/features/content/Referral_Screen.dart';
+import 'package:do_an_mobile/features/content/introduction.dart';
+
 class ProfileUserScreen extends StatefulWidget {
   const ProfileUserScreen({super.key});
 
@@ -118,9 +122,9 @@ class _ProfileUserScreenState extends State<ProfileUserScreen> {
                       icon: const Icon(Icons.arrow_back, color: Colors.black),
                       onPressed: () {
                         Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => HomeScreen()),
-                  );
+                          context,
+                          MaterialPageRoute(builder: (context) => HomeScreen()),
+                        );
                       },
                     ),
 
@@ -190,11 +194,40 @@ class _ProfileUserScreenState extends State<ProfileUserScreen> {
                 color: Colors.white,
                 child: Column(
                   children: [
-                    _buildMenuItem('Giới thiệu bạn bè & nhận quà', () {}),
-                    _buildMenuItem('Ưu đãi', () {}),
-                    _buildMenuItem('Điều khoản và điều kiện', () {}),
+                    _buildMenuItem('Giới thiệu bạn bè & nhận quà', () {
+                        Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => IntroductionScreen(),
+                        ),
+                      );
+                    }),
+                    _buildMenuItem('Ưu đãi', () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ReferralScreen(),
+                        ),
+                      );
+                    }),
+
+                    _buildMenuItem('Điều khoản và điều kiện', () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => IntroductionScreen(),
+                        ),
+                      );
+                    }),
                     _buildMenuItem('Vé chúc tồi', () {}),
-                    _buildMenuItem('Đăng ký làm chủ sân', () {}),
+                    _buildMenuItem('Đăng ký làm chủ sân', () {
+                        Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => OwnerRegistrationScreen(),
+                        ),
+                      );
+                    }),
                     _buildMenuItem('Đăng xuất', _signOut),
                   ],
                 ),

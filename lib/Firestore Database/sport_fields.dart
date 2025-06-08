@@ -6,10 +6,10 @@ class SportsField {
   final String address;
   final double lat;
   final double lng;
-  final String sportType;
+   String sportType;
   final String? imageUrl;
   final double? price;
-  final double? distance;
+  double? distance;
   final double? rating;
   final int? reviewCount;
 

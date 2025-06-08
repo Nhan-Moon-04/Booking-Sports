@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -10,6 +12,7 @@ import 'package:do_an_mobile/features/booking_schedule/booking_schedule_screen.d
 import 'package:do_an_mobile/features/navbar/nav_screens.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:do_an_mobile/features/profile/profile_user/profile_user.dart';
+import 'package:do_an_mobile/features/Notification/payment_success_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +23,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  bool _isSearching = false; // Thêm biến trạng thái cho tìm kiếm
+  final TextEditingController _searchController = TextEditingController();
   final List<Widget> _screens = [
     HomeContent(),
     BookingScheduleScreen(),
@@ -27,37 +32,86 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: _currentIndex == 0
           ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => nav_screens()),
-                  );
-                },
-              ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Icon(Icons.chat_bubble),
-                  onPressed: () => setState(() => _currentIndex = 1),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.notifications),
-                  onPressed: () => setState(() => _currentIndex = 1),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.account_circle),
-                  onPressed: () => setState(() => _currentIndex = 2),
-                ),
-              ],
+              leading: _isSearching
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () {
+                        setState(() {
+                          _isSearching = false;
+                          _searchController.clear();
+                        });
+                      },
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.menu),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => nav_screens()),
+                        );
+                      },
+                    ),
+              title: _isSearching
+                  ? AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: double.infinity,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: 'Tìm kiếm...',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.all(10),
+                          prefixIcon: Icon(Icons.search),
+                          suffixIcon: IconButton(
+                            icon: Icon(Icons.close),
+                            onPressed: () {
+                              _searchController.clear();
+                            },
+                          ),
+                        ),
+                      ),
+                    )
+                  : null,
+              actions: _isSearching
+                  ? []
+                  : [
+                      IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: () {
+                          setState(() {
+                            _isSearching = true;
+                          });
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.chat_bubble),
+                        onPressed: () => setState(() => _currentIndex = 1),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.notifications),
+                        onPressed: () => setState(() => _currentIndex = 1),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.account_circle),
+                        onPressed: () => setState(() => _currentIndex = 2),
+                      ),
+                    ],
               elevation: 0,
               backgroundColor: Colors.transparent,
             )
@@ -106,10 +160,11 @@ class _HomeContentState extends State<HomeContent> {
   Future<void> _fetchSportsFields() async {
     try {
       print("Đang kết nối tới Firestore...");
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('sports_fields')
-          .limit(10)
-          .get();
+      final querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('sports_fields')
+              .limit(10)
+              .get();
 
       print("Nhận được ${querySnapshot.size} documents");
 
@@ -118,10 +173,69 @@ class _HomeContentState extends State<HomeContent> {
         return;
       }
 
-      final fields = querySnapshot.docs.map((doc) {
-        print("Document ID: ${doc.id}");
-        return SportsField.fromFirestore(doc);
-      }).toList();
+      // Lấy vị trí hiện tại của người dùng
+      Position? userPosition;
+      try {
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          print('Location services are disabled');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Vui lòng bật dịch vụ định vị')),
+          );
+          return;
+        }
+
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied) {
+            print('Location permissions are denied');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Quyền truy cập vị trí bị từ chối')),
+            );
+            return;
+          }
+        }
+
+        if (permission == LocationPermission.deniedForever) {
+          print('Location permissions are permanently denied');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Quyền truy cập vị trí bị từ chối vĩnh viễn'),
+            ),
+          );
+          return;
+        }
+
+        userPosition = await Geolocator.getCurrentPosition();
+      } catch (e) {
+        print('Error getting user location: $e');
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi lấy vị trí: $e')));
+      }
+
+      final fields =
+          querySnapshot.docs.map((doc) {
+            print("Document ID: ${doc.id}");
+            SportsField field = SportsField.fromFirestore(doc);
+
+            // Tính khoảng cách từ vị trí người dùng đến sân bóng
+            double? distance;
+            if (userPosition != null) {
+              distance =
+                  Geolocator.distanceBetween(
+                    userPosition.latitude,
+                    userPosition.longitude,
+                    field.lat,
+                    field.lng,
+                  ) /
+                  1000; // Chuyển đổi từ mét sang kilômét
+            }
+
+            // Tạo bản sao mới với distance được cập nhật
+            return field.copyWith(distance: distance);
+          }).toList();
 
       setState(() {
         _allSportsFields = fields;
@@ -152,106 +266,140 @@ class _HomeContentState extends State<HomeContent> {
   }
 
   Future<void> _centerOnUserLocation() async {
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        print('Location services are disabled');
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          print('Location permissions are denied');
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        print('Location permissions are permanently denied');
-        return;
-      }
-
-      Position position = await Geolocator.getCurrentPosition();
-      _mapController.move(LatLng(position.latitude, position.longitude), 14.0);
-    } catch (e) {
-      print('Error getting location: $e');
-      _mapController.move(_center, 14.0);
+  try {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      print('Dịch vụ định vị bị tắt');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng bật dịch vụ định vị')),
+      );
+      return;
     }
-  }
 
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        print('Quyền truy cập vị trí bị từ chối');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Quyền truy cập vị trí bị từ chối')),
+        );
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      print('Quyền truy cập vị trí bị từ chối vĩnh viễn');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Quyền truy cập vị trí bị từ chối vĩnh viễn')),
+      );
+      return;
+    }
+
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    ).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        throw TimeoutException('Không thể lấy vị trí trong thời gian cho phép');
+      },
+    );
+
+    print('Vị trí người dùng: ${position.latitude}, ${position.longitude}');
+    _mapController.move(LatLng(position.latitude, position.longitude), 14.0);
+  } catch (e) {
+    print('Lỗi lấy vị trí: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Lỗi lấy vị trí: $e')),
+    );
+    // Fallback về toạ độ mặc định ở Việt Nam
+    _mapController.move(const LatLng(10.762622, 106.660172), 14.0);
+  }
+}
+
+  //fill
   void _showFieldDetails(BuildContext context, SportsField field) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              field.name,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              field.address,
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Loại sân: ${field.sportType}',
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder:
+          (context) => Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text(
+                  field.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  field.address,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Loại sân: ${field.sportType}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                ),
+                const SizedBox(height: 16),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 18),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${field.rating?.toStringAsFixed(1) ?? '4.8'} (${field.reviewCount ?? '120'})',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Colors.amber, size: 18),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${field.rating?.toStringAsFixed(1) ?? '4.8'} (${field.reviewCount ?? '120'})',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.booking,
+                          arguments: {'field': field},
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4A90E2),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Đặt ngay',
+                        style: TextStyle(fontSize: 14),
+                      ),
                     ),
                   ],
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.booking,
-                      arguments: {'field': field},
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4A90E2),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Đặt ngay', style: TextStyle(fontSize: 14)),
-                ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
+  //icon sport
   Widget _buildSportMarker(BuildContext context, SportsField field) {
     Color markerColor;
     switch (field.sportType) {
@@ -312,178 +460,217 @@ class _HomeContentState extends State<HomeContent> {
             end: Alignment.bottomRight,
           ),
         ),
-        child: _mapLoadingError
-            ? const Center(
-                child: Text(
-                  'Lỗi tải bản đồ, vui lòng thử lại',
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                ),
-              )
-            : SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: 300,
-                        width: double.infinity,
-                        child: Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: FlutterMap(
-                                mapController: _mapController,
-                                options: MapOptions(
-                                  initialCenter: _center,
-                                  initialZoom: 14.0,
-                                  onTap: (tapPosition, point) {
-                                    AppRoutes.goTo(
-                                      context,
-                                      AppRoutes.map,
-                                      arguments: _sportsFields,
-                                    );
-                                  },
-                                ),
-                                children: [
-                                  TileLayer(
-                                    urlTemplate:
-                                        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-                                    subdomains: const ['a', 'b', 'c', 'd'],
-                                    errorTileCallback: (tile, error, stackTrace) {
-                                      print('Tile loading error: $error');
-                                      setState(() {
-                                        _mapLoadingError = true;
-                                      });
+        child:
+            _mapLoadingError
+                ? const Center(
+                  child: Text(
+                    'Lỗi tải bản đồ, vui lòng thử lại',
+                    style: TextStyle(color: Colors.white, fontSize: 18),
+                  ),
+                )
+                : SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 300,
+                          width: double.infinity,
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: FlutterMap(
+                                  mapController: _mapController,
+                                  options: MapOptions(
+                                    initialCenter: _center,
+                                    initialZoom: 14.0,
+                                    onTap: (tapPosition, point) {
+                                      AppRoutes.goTo(
+                                        context,
+                                        AppRoutes.map,
+                                        arguments: _sportsFields,
+                                      );
                                     },
-                                    tileProvider: NetworkTileProvider(),
                                   ),
-                                  MarkerClusterLayerWidget(
-                                    options: MarkerClusterLayerOptions(
-                                      maxClusterRadius: 45,
-                                      markers: _sportsFields.map((field) {
-                                        return Marker(
-                                          point: LatLng(field.lat, field.lng),
-                                          width: 50,
-                                          height: 50,
-                                          child: _buildSportMarker(
-                                            context,
-                                            field,
-                                          ),
-                                        );
-                                      }).toList(),
-                                      builder: (context, markers) {
-                                        return Container(
-                                          width: 40,
-                                          height: 40,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Colors.pinkAccent.withOpacity(0.8),
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              '${markers.length}',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
+                                  children: [
+                                    TileLayer(
+                                      urlTemplate:
+                                          'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                                      subdomains: const ['a', 'b', 'c', 'd'],
+                                      errorTileCallback: (
+                                        tile,
+                                        error,
+                                        stackTrace,
+                                      ) {
+                                        print('Tile loading error: $error');
+                                        setState(() {
+                                          _mapLoadingError = true;
+                                        });
+                                      },
+                                      tileProvider: NetworkTileProvider(),
+                                    ),
+                                    MarkerClusterLayerWidget(
+                                      options: MarkerClusterLayerOptions(
+                                        maxClusterRadius: 45,
+                                        markers:
+                                            _sportsFields.map((field) {
+                                              return Marker(
+                                                point: LatLng(
+                                                  field.lat,
+                                                  field.lng,
+                                                ),
+                                                width: 50,
+                                                height: 50,
+                                                child: _buildSportMarker(
+                                                  context,
+                                                  field,
+                                                ),
+                                              );
+                                            }).toList(),
+                                        builder: (context, markers) {
+                                          return Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: Colors.pinkAccent
+                                                  .withOpacity(0.8),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                '${markers.length}',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        );
-                                      },
+                                          );
+                                        },
+                                      ),
                                     ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 16,
+                                right: 16,
+                                child: FloatingActionButton(
+                                  onPressed: _centerOnUserLocation,
+                                  backgroundColor: const Color(0xFF4A90E2),
+                                  elevation: 6,
+                                  child: const Icon(
+                                    Icons.my_location,
+                                    color: Colors.white,
                                   ),
-                                ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Danh mục thể thao',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 4,
+                          childAspectRatio: 1.0,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          children: [
+                            _buildSportCategory(
+                              Icons.sports_soccer,
+                              'Bóng đá',
+                              Colors.green,
+                            ),
+                            _buildSportCategory(
+                              Icons.sports,
+                              'Cầu lông',
+                              Colors.blue,
+                            ),
+                            _buildSportCategory(
+                              Icons.sports_tennis,
+                              'Tennis',
+                              Colors.orange,
+                            ),
+                            _buildSportCategory(
+                              Icons.sports_basketball,
+                              'Bóng rổ',
+                              Colors.red,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Sân gần bạn',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
                             ),
-                            Positioned(
-                              bottom: 16,
-                              right: 16,
-                              child: FloatingActionButton(
-                                onPressed: _centerOnUserLocation,
-                                backgroundColor: const Color(0xFF4A90E2),
-                                elevation: 6,
-                                child: const Icon(Icons.my_location, color: Colors.white),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/view_all_fields',
+                                  arguments: _sportsFields,
+                                );
+                              },
+                              child: const Text(
+                                'Xem tất cả',
+                                style: TextStyle(color: Colors.white70),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Danh mục thể thao',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 4,
-                        childAspectRatio: 1.0,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                        children: [
-                          _buildSportCategory(Icons.sports_soccer, 'Bóng đá', Colors.green),
-                          _buildSportCategory(Icons.sports, 'Cầu lông', Colors.blue),
-                          _buildSportCategory(Icons.sports_tennis, 'Tennis', Colors.orange),
-                          _buildSportCategory(Icons.sports_basketball, 'Bóng rổ', Colors.red),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Sân gần bạn',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pushNamed(
-                                context,
-                                '/view_all_fields',
-                                arguments: _sportsFields,
-                              );
-                            },
-                            child: const Text(
-                              'Xem tất cả',
-                              style: TextStyle(color: Colors.white70),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _sportsFields.isEmpty
-                          ? const Center(
+                        const SizedBox(height: 16),
+                        _sportsFields.isEmpty
+                            ? const Center(
                               child: Text(
                                 "Không tìm thấy sân thể thao nào",
-                                style: TextStyle(color: Colors.white70, fontSize: 16),
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 16,
+                                ),
                               ),
                             )
-                          : ListView.builder(
+                            : ListView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _sportsFields.length > 5 ? 5 : _sportsFields.length,
+                              itemCount:
+                                  _sportsFields.length > 5
+                                      ? 5
+                                      : _sportsFields.length,
                               itemBuilder: (context, index) {
-                                return _buildFieldCard(context, _sportsFields[index]);
+                                return _buildFieldCard(
+                                  context,
+                                  _sportsFields[index],
+                                );
                               },
                             ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
       ),
     );
   }
 
+//build view card
   Widget _buildFieldCard(BuildContext context, SportsField field) {
     return Card(
       elevation: 8,
@@ -523,7 +710,7 @@ class _HomeContentState extends State<HomeContent> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${field.price?.toStringAsFixed(0) ?? '100.000'} VND/giờ • ${field.distance?.toStringAsFixed(1) ?? '5'}km',
+                  '${field.price?.toStringAsFixed(0) ?? '100.000'} VND/giờ • ${field.distance != null ? field.distance!.toStringAsFixed(1) : 'N/A'}km',
                   style: TextStyle(color: Colors.grey[600], fontSize: 14),
                 ),
                 const SizedBox(height: 8),
@@ -536,7 +723,10 @@ class _HomeContentState extends State<HomeContent> {
                         const SizedBox(width: 4),
                         Text(
                           '${field.rating?.toStringAsFixed(1) ?? '4.8'} (${field.reviewCount ?? '120'})',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),
@@ -556,12 +746,18 @@ class _HomeContentState extends State<HomeContent> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4A90E2),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text('Đặt ngay', style: TextStyle(fontSize: 14)),
+                      child: const Text(
+                        'Đặt ngay',
+                        style: TextStyle(fontSize: 14),
+                      ),
                     ),
                   ],
                 ),
@@ -575,9 +771,7 @@ class _HomeContentState extends State<HomeContent> {
 
   Widget _buildSportCategory(IconData icon, String name, Color color) {
     return GestureDetector(
-      onTap: () {
-        // Add filter logic here if needed
-      },
+      onTap: () {},
       child: Card(
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -597,28 +791,6 @@ class _HomeContentState extends State<HomeContent> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class PhuongChip extends StatelessWidget {
-  final String name;
-  const PhuongChip({super.key, required this.name});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Text(
-        name,
-        style: const TextStyle(color: Colors.white),
       ),
     );
   }
