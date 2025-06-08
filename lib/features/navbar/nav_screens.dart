@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'filter_screens.dart';
 import 'package:do_an_mobile/features/booking/booking_screen.dart';
 import 'package:do_an_mobile/firestore database/sport_fields.dart';
-import 'package:do_an_mobile/features/booking_schedule/booking_schedule_screen.dart';
 
 class nav_screens extends StatefulWidget {
   const nav_screens({super.key});
@@ -64,12 +63,18 @@ class _nav_screensState extends State<nav_screens> {
                 IconButton(
                   icon: const Icon(Icons.filter_alt_outlined, size: 28),
                   onPressed: () async {
-                    await Navigator.push(
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const FilterScreen(),
+                        builder:
+                            (context) => FilterScreen(initialFilters: filters),
                       ),
                     );
+                    if (result != null && result is Map<String, dynamic>) {
+                      setState(() {
+                        filters = result;
+                      });
+                    }
                   },
                 ),
               ],
@@ -89,7 +94,6 @@ class _nav_screensState extends State<nav_screens> {
                   return const Center(child: Text('Không có dữ liệu'));
                 }
                 String removeDiacritics(String str) {
-                  // Chuyển tiếng Việt có dấu thành không dấu
                   const withDiacritics =
                       'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ'
                       'ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ';
@@ -105,7 +109,7 @@ class _nav_screensState extends State<nav_screens> {
                   return str;
                 }
 
-                // Lọc dữ liệu theo searchText (tên, địa chỉ, loại môn thể thao, không phân biệt dấu)
+                // Lọc dữ liệu theo searchText, bộ môn, giá tiền, địa điểm, ngày
                 final filteredDocs =
                     snapshot.data!.docs.where((doc) {
                       final data = doc.data() as Map<String, dynamic>;
@@ -119,11 +123,46 @@ class _nav_screensState extends State<nav_screens> {
                         (data['sportType'] ?? '').toString().toLowerCase(),
                       );
                       final search = removeDiacritics(searchText.toLowerCase());
-                      return name.contains(search) ||
+
+                      // Lọc theo searchText
+                      bool matchSearch =
+                          name.contains(search) ||
                           address.contains(search) ||
                           sportType.contains(search);
+
+                      // Lọc theo bộ môn (multi-select)
+                      if (filters['sports'] != null &&
+                          (filters['sports'] as List).isNotEmpty) {
+                        if (!filters['sports'].contains(data['sportType']))
+                          return false;
+                      }
+                      // Lọc theo giá
+                      if (filters['price'] != null && filters['price'] != '') {
+                        final price = (data['price'] ?? 0) as num;
+                        switch (filters['price']) {
+                          case 'Dưới 150K':
+                            if (price >= 150000) return false;
+                            break;
+                          case '150K - 300K':
+                            if (price < 150000 || price > 300000) return false;
+                            break;
+                          case 'Trên 300K':
+                            if (price <= 300000) return false;
+                            break;
+                        }
+                      }
+                      // Lọc theo địa điểm
+                      if (filters['location'] != null &&
+                          filters['location'] != '') {
+                        if (!(data['address'] ?? '').toString().contains(
+                          filters['location'],
+                        ))
+                          return false;
+                      }
+
+                      return matchSearch;
                     }).toList();
-                // ...existing code...
+
                 return ListView(
                   padding: const EdgeInsets.all(12),
                   children:
@@ -221,7 +260,6 @@ class _nav_screensState extends State<nav_screens> {
                                       ],
                                     ),
                                   ),
-
                                   ElevatedButton(
                                     onPressed: () {
                                       Navigator.push(
@@ -350,12 +388,11 @@ class _nav_screensState extends State<nav_screens> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  '',
-                                  /* field.phone ?? 'Chưa có số điện thoại',
+                                  field.phone ?? 'Chưa có số điện thoại',
                                   style: const TextStyle(
                                     fontSize: 15,
                                     color: Colors.black87,
-                                  ),*/
+                                  ),
                                 ),
                               ],
                             ),
@@ -473,8 +510,8 @@ class _nav_screensState extends State<nav_screens> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Text(
-                                                    /*field.openHours ??*/
-                                                    'Chưa có',
+                                                    field.openHours ??
+                                                        'Chưa có',
                                                     style: const TextStyle(
                                                       fontSize: 15,
                                                     ),
@@ -505,8 +542,8 @@ class _nav_screensState extends State<nav_screens> {
                                                 ),
                                               ),
                                               Text(
-                                                /*field.services ??*/
-                                                'Chưa có thông tin',
+                                                '',
+                                                /*field.services ?? 'Chưa có thông tin',*/
                                               ),
                                               const SizedBox(height: 8),
                                               // Mô tả
@@ -518,19 +555,235 @@ class _nav_screensState extends State<nav_screens> {
                                               ),
                                               Text(
                                                 '',
-                                                /*doi goi databassedatabasse*/
+                                                /*field.description ?? '',*/
                                               ),
                                             ],
                                           ),
                                         ),
                                         // Tab Bảng giá
+                                        // ...trong TabBarView, thay thế tab Bảng giá:
                                         Center(
-                                          child: Text(
-                                            'Bảng giá đang cập nhật...',
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 16,
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const Text(
+                                                  'Bảng giá sân',
+                                                  style: TextStyle(
+                                                    color: Colors.pink,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 20,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 16),
+                                                const Text(
+                                                  'Sân trong nhà',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Table(
+                                                  border: TableBorder.symmetric(
+                                                    inside: const BorderSide(
+                                                      color: Colors.grey,
+                                                      width: 0.5,
+                                                    ),
+                                                    outside: const BorderSide(
+                                                      color: Colors.grey,
+                                                      width: 0.5,
+                                                    ),
+                                                  ),
+                                                  columnWidths: const {
+                                                    0: FlexColumnWidth(1.2),
+                                                    1: FlexColumnWidth(1.5),
+                                                    2: FlexColumnWidth(1.3),
+                                                  },
+                                                  children: const [
+                                                    TableRow(
+                                                      decoration: BoxDecoration(
+                                                        color: Color(
+                                                          0xFFF6F6F6,
+                                                        ),
+                                                      ),
+                                                      children: [
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            'Thứ',
+                                                            style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            'Khung giờ',
+                                                            style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            'Đơn giá/60 phút',
+                                                            style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    TableRow(
+                                                      children: [
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            'T2 - T6',
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            '5h - 17h',
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            '80.000 đ',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    TableRow(
+                                                      children: [
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            'T2 - T6',
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            '17h - 22h',
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            '140.000 đ',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    TableRow(
+                                                      children: [
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            'T2 - T6',
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            '22h - 24h',
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            '110.000 đ',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    TableRow(
+                                                      children: [
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            'T7 - CN',
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            '5h - 22h',
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            '130.000 đ',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    TableRow(
+                                                      children: [
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            'T7 - CN',
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            '22h - 24h',
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                              EdgeInsets.all(8),
+                                                          child: Text(
+                                                            '110.000 đ',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                         // Tab Thư viện ảnh
-                                        Center(
+                                        const Center(
                                           child: Text(
                                             'Thư viện ảnh đang cập nhật...',
                                           ),
@@ -551,7 +804,25 @@ class _nav_screensState extends State<nav_screens> {
                               ),
                             ),
                             const SizedBox(height: 8),
-
+                            /*(field.reviews != null && field.reviews!.isNotEmpty)
+                        ? Column(
+                            children: field.reviews!
+                                .map((review) => Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.person, size: 20, color: Colors.grey),
+                                          const SizedBox(width: 8),
+                                          Expanded(child: Text(review)),
+                                        ],
+                                      ),
+                                    ))
+                                .toList(),
+                          )
+                        : const Text(
+                            'Chưa có bình luận nào',
+                            style: TextStyle(color: Colors.black54),
+                          ),*/
                             const SizedBox(height: 16),
                             // Nút đặt lịch
                             SizedBox(

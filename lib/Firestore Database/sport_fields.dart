@@ -12,6 +12,8 @@ class SportsField {
   final double? distance;
   final double? rating;
   final int? reviewCount;
+  final String? phone;
+  final String? openHours;
 
   SportsField({
     required this.id,
@@ -25,6 +27,8 @@ class SportsField {
     this.distance,
     this.rating,
     this.reviewCount,
+    this.phone,
+    this.openHours,
   });
 
   factory SportsField.fromFirestore(DocumentSnapshot doc) {
@@ -42,6 +46,8 @@ class SportsField {
       distance: (data['distance'] as num?)?.toDouble(),
       rating: (data['rating'] as num?)?.toDouble(),
       reviewCount: data['reviewCount'] as int?,
+      phone: data['phone'],
+      openHours: data['openHours'],
     );
   }
 
@@ -57,6 +63,8 @@ class SportsField {
     double? distance,
     double? rating,
     int? reviewCount,
+    String? phone,
+    String? openHours,
   }) {
     return SportsField(
       id: id ?? this.id,
@@ -70,6 +78,8 @@ class SportsField {
       distance: distance ?? this.distance,
       rating: rating ?? this.rating,
       reviewCount: reviewCount ?? this.reviewCount,
+      phone: phone ?? this.phone,
+      openHours: openHours ?? this.openHours,
     );
   }
 }
