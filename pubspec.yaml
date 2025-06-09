@@ -47,6 +47,7 @@ dependencies:
   google_maps_flutter: ^2.2.5
   qr_flutter: ^4.1.0
   flutter_map_marker_cluster: ^1.3.0
+  google_sign_in: ^6.3.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -56,4 +57,5 @@ dev_dependencies:
 flutter:
   assets:
   - assets/Icons/
+  - assets/images/
   uses-material-design: true

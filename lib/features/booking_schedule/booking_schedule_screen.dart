@@ -47,7 +47,7 @@ class _BookingScheduleScreenState extends State<BookingScheduleScreen> {
       // Tất cả: lấy mọi booking trừ cancelled
       bookingQuery = bookingQuery.where(
         'status',
-        whereIn: ['confirmed', 'pending'],
+        whereIn: ['confirmed'],
       );
       // Không thể đồng thời whereIn paymentStatus, sẽ fetch rộng hơn rồi lọc trong app
     } else if (_selectedFilterIndex == 2) {

@@ -583,11 +583,7 @@ class _HomeContentState extends State<HomeContent> {
                         const SizedBox(height: 16),
                         GridView.count(
                           shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
                           crossAxisCount: 4,
-                          childAspectRatio: 1.0,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
                           children: [
                             _buildSportCategory(
                               Icons.sports_soccer,
