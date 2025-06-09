@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
 class FilterScreen extends StatefulWidget {
-  final void Function(Map<String, dynamic> filters)? onApply;
-  final VoidCallback? onClear;
-  const FilterScreen({super.key, this.onApply, this.onClear});
+  final Map<String, dynamic>? initialFilters;
+  const FilterScreen({super.key, this.initialFilters});
 
   @override
   State<FilterScreen> createState() => _FilterScreenState();
@@ -16,6 +15,16 @@ class _FilterScreenState extends State<FilterScreen> {
   String? selectedLocation;
   String? selectedPrice;
   DateTime? selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    final filters = widget.initialFilters ?? {};
+    selectedSports = Set<String>.from(filters['sports'] ?? []);
+    selectedLocation = filters['location'];
+    selectedPrice = filters['price'];
+    selectedDate = filters['date'];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,23 +54,21 @@ class _FilterScreenState extends State<FilterScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children:
-                    sports
-                        .map(
-                          (sport) => FilterChip(
-                            label: Text(sport),
-                            selected: selectedSports.contains(sport),
-                            onSelected: (selected) {
-                              setState(() {
-                                if (selected) {
-                                  selectedSports.add(sport);
-                                } else {
-                                  selectedSports.remove(sport);
-                                }
-                              });
-                            },
-                          ),
-                        )
-                        .toList(),
+                    sports.map((sport) {
+                      return FilterChip(
+                        label: Text(sport),
+                        selected: selectedSports.contains(sport),
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              selectedSports.add(sport);
+                            } else {
+                              selectedSports.remove(sport);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
               ),
               const SizedBox(height: 16),
               const Text(
@@ -133,97 +140,35 @@ class _FilterScreenState extends State<FilterScreen> {
                         value: null,
                         child: Text('Tất cả'),
                       ),
-                      const DropdownMenuItem(
-                        value: 'Quận 1',
-                        child: Text('Quận 1'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Quận 2',
-                        child: Text('Quận 2'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Quận 3',
-                        child: Text('Quận 3'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Quận 4',
-                        child: Text('Quận 4'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Quận 5',
-                        child: Text('Quận 5'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Quận 6',
-                        child: Text('Quận 6'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Quận 7',
-                        child: Text('Quận 7'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Quận 8',
-                        child: Text('Quận 8'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Quận 9',
-                        child: Text('Quận 9'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Quận 10',
-                        child: Text('Quận 10'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Quận 11',
-                        child: Text('Quận 11'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Quận 12',
-                        child: Text('Quận 12'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Bình Thạnh',
-                        child: Text('Bình Thạnh'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Gò Vấp',
-                        child: Text('Gò Vấp'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Tân Bình',
-                        child: Text('Tân Bình'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Tân Phú',
-                        child: Text('Tân Phú'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Phú Nhuận',
-                        child: Text('Phú Nhuận'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Bình Tân',
-                        child: Text('Bình Tân'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Thủ Đức',
-                        child: Text('Thủ Đức'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Nhà Bè',
-                        child: Text('Nhà Bè'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Cần Giờ',
-                        child: Text('Cần Giờ'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Hóc Môn',
-                        child: Text('Hóc Môn'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'Bình Chánh',
-                        child: Text('Bình Chánh'),
+                      ...[
+                        'Quận 1',
+                        'Quận 2',
+                        'Quận 3',
+                        'Quận 4',
+                        'Quận 5',
+                        'Quận 6',
+                        'Quận 7',
+                        'Quận 8',
+                        'Quận 9',
+                        'Quận 10',
+                        'Quận 11',
+                        'Quận 12',
+                        'Bình Thạnh',
+                        'Gò Vấp',
+                        'Tân Bình',
+                        'Tân Phú',
+                        'Phú Nhuận',
+                        'Bình Tân',
+                        'Thủ Đức',
+                        'Nhà Bè',
+                        'Cần Giờ',
+                        'Hóc Môn',
+                        'Bình Chánh',
+                      ].map(
+                        (district) => DropdownMenuItem(
+                          value: district,
+                          child: Text(district),
+                        ),
                       ),
                     ],
                     onChanged:
@@ -239,16 +184,14 @@ class _FilterScreenState extends State<FilterScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children:
-                    priceRanges
-                        .map(
-                          (price) => ChoiceChip(
-                            label: Text(price),
-                            selected: selectedPrice == price,
-                            onSelected:
-                                (_) => setState(() => selectedPrice = price),
-                          ),
-                        )
-                        .toList(),
+                    priceRanges.map((price) {
+                      return ChoiceChip(
+                        label: Text(price),
+                        selected: selectedPrice == price,
+                        onSelected:
+                            (_) => setState(() => selectedPrice = price),
+                      );
+                    }).toList(),
               ),
               const SizedBox(height: 32),
               Row(
@@ -262,7 +205,6 @@ class _FilterScreenState extends State<FilterScreen> {
                           selectedPrice = null;
                           selectedDate = null;
                         });
-                        widget.onClear?.call();
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFE84C88),
@@ -284,9 +226,6 @@ class _FilterScreenState extends State<FilterScreen> {
                           'location': selectedLocation,
                           'price': selectedPrice,
                         };
-                        if (widget.onApply != null) {
-                          widget.onApply!(filters);
-                        }
                         Navigator.pop(context, filters);
                       },
                       style: ElevatedButton.styleFrom(

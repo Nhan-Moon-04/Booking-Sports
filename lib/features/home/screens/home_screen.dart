@@ -166,7 +166,6 @@ class _HomeContentState extends State<HomeContent> {
       final querySnapshot =
           await FirebaseFirestore.instance
               .collection('sports_fields')
-              .limit(10)
               .get();
 
       print("Nhận được ${querySnapshot.size} documents");

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:do_an_mobile/firestore database/sport_fields.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'field_management_screen.dart';
+import 'account_management_screen.dart';
+import 'revenue_statistics_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -10,105 +12,86 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  late Future<List<SportsField>> _futureFields;
+  int _selectedIndex = 0; // Để mặc định là 0: Quản lý sân
 
-  @override
-  void initState() {
-    super.initState();
-    _futureFields = _fetchFields();
-  }
+  final List<String> _titles = [
+    'Quản lý sân',
+    'Quản lý tài khoản',
+    'Thống kê doanh thu',
+  ];
 
-  Future<List<SportsField>> _fetchFields() async {
-    final snapshot = await _firestore.collection('sport_fields').get();
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      return SportsField(
-        id: doc.id,
-        name: data['name'] ?? '',
-        address: data['address'] ?? '',
-        lat: (data['lat'] ?? 0).toDouble(),
-        lng: (data['lng'] ?? 0).toDouble(),
-        sportType: data['sportType'] ?? '',
-      );
-    }).toList();
-  }
-
-  void _refresh() {
-    setState(() {
-      _futureFields = _fetchFields();
-    });
-  }
-
-  void _editField(SportsField field) {
-    // TODO: Thêm logic chỉnh sửa sân
-  }
-
-  void _deleteField(SportsField field) {
-    // TODO: Thêm logic xóa sân
-  }
-
-  Widget _buildFieldTile(SportsField field) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: const Icon(Icons.sports),
-        title: Text(field.name),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Địa chỉ: ${field.address}'),
-            Text('Loại sân: ${field.sportType}'),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () => _editField(field),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () => _deleteField(field),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  final List<Widget> _screens = [
+    FieldManagementScreen(),
+    AccountManagementScreen(),
+    RevenueStatisticsScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bảng điều khiển Admin'),
+        title: Text(_titles[_selectedIndex]),
+        backgroundColor: const Color(0xFF4A90E2),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _refresh,
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushReplacementNamed('/login');
+              }
+            },
           ),
         ],
       ),
-      body: FutureBuilder<List<SportsField>>(
-        future: _futureFields,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return const Center(child: Text('Lỗi tải dữ liệu'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('Không có sân nào'));
-          }
-
-          final fields = snapshot.data!;
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: fields.length,
-            itemBuilder: (context, index) => _buildFieldTile(fields[index]),
-          );
-        },
+      drawer: Drawer(
+        child: ListView(
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Color(0xFF4A90E2)),
+              child: Center(
+                child: Text(
+                  'Bảng điều khiển Admin',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.sports_soccer, color: Colors.blue),
+              title: const Text('Quản lý sân'),
+              selected: _selectedIndex == 0,
+              onTap: () {
+                setState(() => _selectedIndex = 0);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.account_circle, color: Colors.blue),
+              title: const Text('Quản lý tài khoản'),
+              selected: _selectedIndex == 1,
+              onTap: () {
+                setState(() => _selectedIndex = 1);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart, color: Colors.blue),
+              title: const Text('Thống kê doanh thu'),
+              selected: _selectedIndex == 2,
+              onTap: () {
+                setState(() => _selectedIndex = 2);
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
       ),
+      body: _screens[_selectedIndex],
     );
   }
 }

@@ -32,7 +32,7 @@ class _MapScreenState extends State<MapScreen> {
     try {
       print("Đang kết nối tới Firestore...");
       final querySnapshot =
-          await FirebaseFirestore.instance.collection('sports_fields').limit(10).get();
+          await FirebaseFirestore.instance.collection('sports_fields').get();
 
       print("Nhận được ${querySnapshot.size} documents");
 

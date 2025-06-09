@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'filter_screens.dart';
 import 'package:do_an_mobile/features/booking/booking_screen.dart';
 import 'package:do_an_mobile/firestore database/sport_fields.dart';
-import 'package:do_an_mobile/features/booking_schedule/booking_schedule_screen.dart';
 
 class nav_screens extends StatefulWidget {
   const nav_screens({super.key});
@@ -64,12 +63,18 @@ class _nav_screensState extends State<nav_screens> {
                 IconButton(
                   icon: const Icon(Icons.filter_alt_outlined, size: 28),
                   onPressed: () async {
-                    await Navigator.push(
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const FilterScreen(),
+                        builder:
+                            (context) => FilterScreen(initialFilters: filters),
                       ),
                     );
+                    if (result != null && result is Map<String, dynamic>) {
+                      setState(() {
+                        filters = result;
+                      });
+                    }
                   },
                 ),
               ],
@@ -89,7 +94,6 @@ class _nav_screensState extends State<nav_screens> {
                   return const Center(child: Text('Không có dữ liệu'));
                 }
                 String removeDiacritics(String str) {
-                  // Chuyển tiếng Việt có dấu thành không dấu
                   const withDiacritics =
                       'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ'
                       'ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ';
@@ -105,7 +109,7 @@ class _nav_screensState extends State<nav_screens> {
                   return str;
                 }
 
-                // Lọc dữ liệu theo searchText (tên, địa chỉ, loại môn thể thao, không phân biệt dấu)
+                // Lọc dữ liệu theo searchText, bộ môn, giá tiền, địa điểm, ngày
                 final filteredDocs =
                     snapshot.data!.docs.where((doc) {
                       final data = doc.data() as Map<String, dynamic>;
@@ -119,11 +123,47 @@ class _nav_screensState extends State<nav_screens> {
                         (data['sportType'] ?? '').toString().toLowerCase(),
                       );
                       final search = removeDiacritics(searchText.toLowerCase());
-                      return name.contains(search) ||
+
+                      // Lọc theo searchText
+                      bool matchSearch =
+                          name.contains(search) ||
                           address.contains(search) ||
                           sportType.contains(search);
+
+                      // Lọc theo bộ môn (multi-select)
+                      if (filters['sports'] != null &&
+                          (filters['sports'] as List).isNotEmpty) {
+                        if (!filters['sports'].contains(data['sportType']))
+                          return false;
+                      }
+                      // Lọc theo giá
+                      if (filters['price'] != null && filters['price'] != '') {
+                        final price = (data['price'] ?? 0) as num;
+                        switch (filters['price']) {
+                          case 'Dưới 150K':
+                            if (price >= 150000) return false;
+                            break;
+                          case '150K - 300K':
+                            if (price < 150000 || price > 300000) return false;
+                            break;
+                          case 'Trên 300K':
+                            if (price <= 300000) return false;
+                            break;
+                        }
+                      }
+                      // Lọc theo địa điểm
+                      if (filters['location'] != null &&
+                          filters['location'] != '') {
+                        if (!(data['address'] ?? '').toString().contains(
+                          filters['location'],
+                        ))
+                          return false;
+                      }
+                      // Lọc theo ngày (nếu bạn có logic kiểm tra ngày trống sân, hãy bổ sung ở đây)
+
+                      return matchSearch;
                     }).toList();
-                // ...existing code...
+
                 return ListView(
                   padding: const EdgeInsets.all(12),
                   children:
@@ -221,7 +261,6 @@ class _nav_screensState extends State<nav_screens> {
                                       ],
                                     ),
                                   ),
-
                                   ElevatedButton(
                                     onPressed: () {
                                       Navigator.push(
@@ -350,12 +389,11 @@ class _nav_screensState extends State<nav_screens> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  '',
-                                  /* field.phone ?? 'Chưa có số điện thoại',
+                                  field.phone ?? 'Chưa có số điện thoại',
                                   style: const TextStyle(
                                     fontSize: 15,
                                     color: Colors.black87,
-                                  ),*/
+                                  ),
                                 ),
                               ],
                             ),
@@ -473,8 +511,8 @@ class _nav_screensState extends State<nav_screens> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Text(
-                                                    /*field.openHours ??*/
-                                                    'Chưa có',
+                                                    field.openHours ??
+                                                        'Chưa có',
                                                     style: const TextStyle(
                                                       fontSize: 15,
                                                     ),
@@ -505,7 +543,8 @@ class _nav_screensState extends State<nav_screens> {
                                                 ),
                                               ),
                                               Text(
-                                                /*field.services ??*/
+                                                ''
+                                                /* field.services ??*/
                                                 'Chưa có thông tin',
                                               ),
                                               const SizedBox(height: 8),
@@ -516,21 +555,18 @@ class _nav_screensState extends State<nav_screens> {
                                                   fontWeight: FontWeight.bold,
                                                 ),
                                               ),
-                                              Text(
-                                                '',
-                                                /*doi goi databassedatabasse*/
-                                              ),
+                                              Text(/*field.description ??*/ ''),
                                             ],
                                           ),
                                         ),
                                         // Tab Bảng giá
-                                        Center(
+                                        const Center(
                                           child: Text(
                                             'Bảng giá đang cập nhật...',
                                           ),
                                         ),
                                         // Tab Thư viện ảnh
-                                        Center(
+                                        const Center(
                                           child: Text(
                                             'Thư viện ảnh đang cập nhật...',
                                           ),
@@ -551,7 +587,35 @@ class _nav_screensState extends State<nav_screens> {
                               ),
                             ),
                             const SizedBox(height: 8),
-
+                            /*(field.reviews != null && field.reviews!.isNotEmpty)
+                                ? Column(
+                                  children:
+                                      field.reviews!
+                                          .map(
+                                            (review) => Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 4,
+                                                  ),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons.person,
+                                                    size: 20,
+                                                    color: Colors.grey,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(child: Text(review)),
+                                                ],
+                                              ),
+                                            ),
+                                          )
+                                          .toList(),
+                                )
+                                : const Text(
+                                  'Chưa có bình luận nào',
+                                  style: TextStyle(color: Colors.black54),
+                                ),*/
                             const SizedBox(height: 16),
                             // Nút đặt lịch
                             SizedBox(
