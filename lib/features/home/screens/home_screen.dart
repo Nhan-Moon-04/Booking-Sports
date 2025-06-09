@@ -13,6 +13,7 @@ import 'package:do_an_mobile/features/navbar/nav_screens.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:do_an_mobile/features/profile/profile_user/profile_user.dart';
 import 'package:do_an_mobile/features/Notification/payment_success_screen.dart';
+import 'package:do_an_mobile/Firestore Database/booking.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
     HomeContent(),
     BookingScheduleScreen(),
     ProfileUserScreen(),
+    NotificationPage()
   ];
 
   @override
@@ -105,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.notifications),
-                        onPressed: () => setState(() => _currentIndex = 1),
+                        onPressed: () => setState(() => _currentIndex = 3),
                       ),
                       IconButton(
                         icon: const Icon(Icons.account_circle),
@@ -130,6 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Lịch đặt',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tài khoản'),
+            BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Thông báo'),
         ],
       ),
     );
