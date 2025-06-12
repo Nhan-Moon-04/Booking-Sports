@@ -19,8 +19,11 @@ class _RevenueStatisticsScreenState extends State<RevenueStatisticsScreen> {
     final endOfDay = startOfDay.add(const Duration(days: 1));
     return FirebaseFirestore.instance
         .collectionGroup('bookings')
-        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-        .where('date', isLessThan: Timestamp.fromDate(endOfDay));
+        .where(
+          'bookingDate',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+        )
+        .where('bookingDate', isLessThan: Timestamp.fromDate(endOfDay));
   }
 
   Query<Map<String, dynamic>> _buildMonthQuery(DateTime date) {
@@ -28,8 +31,11 @@ class _RevenueStatisticsScreenState extends State<RevenueStatisticsScreen> {
     final endOfMonth = DateTime(date.year, date.month + 1, 1);
     return FirebaseFirestore.instance
         .collectionGroup('bookings')
-        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
-        .where('date', isLessThan: Timestamp.fromDate(endOfMonth));
+        .where(
+          'bookingDate',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth),
+        )
+        .where('bookingDate', isLessThan: Timestamp.fromDate(endOfMonth));
   }
 
   @override
@@ -116,8 +122,7 @@ class _RevenueStatisticsScreenState extends State<RevenueStatisticsScreen> {
                             dayDocs.map((doc) => doc['fieldId']).toSet();
                         final dayTotal = dayDocs.fold<double>(
                           0,
-                          (sum, doc) =>
-                              sum + (doc['totalPrice'] as num).toDouble(),
+                          (sum, doc) => sum + (doc['amount'] as num).toDouble(),
                         );
                         // Thống kê trong tháng
                         final monthDocs = monthSnapshot.data?.docs ?? [];
@@ -125,8 +130,7 @@ class _RevenueStatisticsScreenState extends State<RevenueStatisticsScreen> {
                             monthDocs.map((doc) => doc['fieldId']).toSet();
                         final monthTotal = monthDocs.fold<double>(
                           0,
-                          (sum, doc) =>
-                              sum + (doc['totalPrice'] as num).toDouble(),
+                          (sum, doc) => sum + (doc['amount'] as num).toDouble(),
                         );
                         return ListView(
                           padding: const EdgeInsets.all(24),

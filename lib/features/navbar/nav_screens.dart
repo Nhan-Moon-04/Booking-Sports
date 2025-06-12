@@ -559,12 +559,214 @@ class _nav_screensState extends State<nav_screens> {
                                             ],
                                           ),
                                         ),
+
                                         // Tab Bảng giá
-                                        const Center(
-                                          child: Text(
-                                            'Bảng giá đang cập nhật...',
+                                        SingleChildScrollView(
+                                          padding: const EdgeInsets.all(16),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              const Text(
+                                                'Bảng giá sân',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 18,
+                                                  color: Colors.pink,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              const Text(
+                                                'Sân trong nhà',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Table(
+                                                border: TableBorder.all(
+                                                  color: Colors.grey.shade300,
+                                                ),
+                                                columnWidths: const {
+                                                  0: FlexColumnWidth(2),
+                                                  1: FlexColumnWidth(3),
+                                                  2: FlexColumnWidth(3),
+                                                },
+                                                children: const [
+                                                  TableRow(
+                                                    decoration: BoxDecoration(
+                                                      color: Color(0xFFF8F8F8),
+                                                    ),
+                                                    children: [
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text(
+                                                          'Thứ',
+                                                          style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text(
+                                                          'Khung giờ',
+                                                          style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text(
+                                                          'Đơn giá/60 phút',
+                                                          style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  TableRow(
+                                                    children: [
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text('T2 - T6'),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text('5h - 17h'),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text('80.000 đ'),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  TableRow(
+                                                    children: [
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text('T2 - T6'),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text(
+                                                          '17h - 22h',
+                                                        ),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text(
+                                                          '140.000 đ',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  TableRow(
+                                                    children: [
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text('T2 - T6'),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text(
+                                                          '22h - 24h',
+                                                        ),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text(
+                                                          '110.000 đ',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  TableRow(
+                                                    children: [
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text('T7 - CN'),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text('5h - 22h'),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text(
+                                                          '130.000 đ',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  TableRow(
+                                                    children: [
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text('T7 - CN'),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text(
+                                                          '22h - 24h',
+                                                        ),
+                                                      ),
+                                                      Padding(
+                                                        padding: EdgeInsets.all(
+                                                          8,
+                                                        ),
+                                                        child: Text(
+                                                          '110.000 đ',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
                                           ),
                                         ),
+                                        // ...existing code...
                                         // Tab Thư viện ảnh
                                         const Center(
                                           child: Text(

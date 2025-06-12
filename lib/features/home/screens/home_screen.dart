@@ -24,13 +24,13 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  bool _isSearching = false; // Thêm biến trạng thái cho tìm kiếm
+  bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   final List<Widget> _screens = [
     HomeContent(),
     BookingScheduleScreen(),
     ProfileUserScreen(),
-    NotificationPage()
+    NotificationPage(),
   ];
 
   @override
@@ -42,82 +42,88 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _currentIndex == 0
-          ? AppBar(
-              leading: _isSearching
-                  ? IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () {
-                        setState(() {
-                          _isSearching = false;
-                          _searchController.clear();
-                        });
-                      },
-                    )
-                  : IconButton(
-                      icon: const Icon(Icons.menu),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => nav_screens()),
-                        );
-                      },
-                    ),
-              title: _isSearching
-                  ? AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      width: double.infinity,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        autofocus: true,
-                        decoration: InputDecoration(
-                          hintText: 'Tìm kiếm...',
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.all(10),
-                          prefixIcon: Icon(Icons.search),
-                          suffixIcon: IconButton(
-                            icon: Icon(Icons.close),
-                            onPressed: () {
+      appBar:
+          _currentIndex == 0
+              ? AppBar(
+                leading:
+                    _isSearching
+                        ? IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () {
+                            setState(() {
+                              _isSearching = false;
                               _searchController.clear();
+                            });
+                          },
+                        )
+                        : IconButton(
+                          icon: const Icon(Icons.menu),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => nav_screens(),
+                              ),
+                            );
+                          },
+                        ),
+                title:
+                    _isSearching
+                        ? AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          width: double.infinity,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            autofocus: true,
+                            decoration: InputDecoration(
+                              hintText: 'Tìm kiếm...',
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.all(10),
+                              prefixIcon: Icon(Icons.search),
+                              suffixIcon: IconButton(
+                                icon: Icon(Icons.close),
+                                onPressed: () {
+                                  _searchController.clear();
+                                },
+                              ),
+                            ),
+                          ),
+                        )
+                        : null,
+                actions:
+                    _isSearching
+                        ? []
+                        : [
+                          IconButton(
+                            icon: const Icon(Icons.search),
+                            onPressed: () {
+                              setState(() {
+                                _isSearching = true;
+                              });
                             },
                           ),
-                        ),
-                      ),
-                    )
-                  : null,
-              actions: _isSearching
-                  ? []
-                  : [
-                      IconButton(
-                        icon: const Icon(Icons.search),
-                        onPressed: () {
-                          setState(() {
-                            _isSearching = true;
-                          });
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.chat_bubble),
-                        onPressed: () => setState(() => _currentIndex = 1),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.notifications),
-                        onPressed: () => setState(() => _currentIndex = 3),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.account_circle),
-                        onPressed: () => setState(() => _currentIndex = 2),
-                      ),
-                    ],
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-            )
-          : null,
+                          IconButton(
+                            icon: const Icon(Icons.chat_bubble),
+                            onPressed: () => setState(() => _currentIndex = 1),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.notifications),
+                            onPressed: () => setState(() => _currentIndex = 3),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.account_circle),
+                            onPressed: () => setState(() => _currentIndex = 2),
+                          ),
+                        ],
+                elevation: 0,
+                backgroundColor: Colors.transparent,
+              )
+              : null,
       body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -132,7 +138,10 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Lịch đặt',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tài khoản'),
-            BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Thông báo'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications),
+            label: 'Thông báo',
+          ),
         ],
       ),
     );
@@ -153,6 +162,7 @@ class _HomeContentState extends State<HomeContent> {
   List<SportsField> _sportsFields = [];
   bool _mapLoadingError = false;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  String? _selectedSportType; // Track selected sport type for filtering
 
   @override
   void initState() {
@@ -164,9 +174,7 @@ class _HomeContentState extends State<HomeContent> {
     try {
       print("Đang kết nối tới Firestore...");
       final querySnapshot =
-          await FirebaseFirestore.instance
-              .collection('sports_fields')
-              .get();
+          await FirebaseFirestore.instance.collection('sports_fields').get();
 
       print("Nhận được ${querySnapshot.size} documents");
 
@@ -175,7 +183,6 @@ class _HomeContentState extends State<HomeContent> {
         return;
       }
 
-      // Lấy vị trí hiện tại của người dùng
       Position? userPosition;
       try {
         bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -222,7 +229,6 @@ class _HomeContentState extends State<HomeContent> {
             print("Document ID: ${doc.id}");
             SportsField field = SportsField.fromFirestore(doc);
 
-            // Tính khoảng cách từ vị trí người dùng đến sân bóng
             double? distance;
             if (userPosition != null) {
               distance =
@@ -232,10 +238,9 @@ class _HomeContentState extends State<HomeContent> {
                     field.lat,
                     field.lng,
                   ) /
-                  1000; // Chuyển đổi từ mét sang kilômét
+                  1000;
             }
 
-            // Tạo bản sao mới với distance được cập nhật
             return field.copyWith(distance: distance);
           }).toList();
 
@@ -268,58 +273,60 @@ class _HomeContentState extends State<HomeContent> {
   }
 
   Future<void> _centerOnUserLocation() async {
-  try {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      print('Dịch vụ định vị bị tắt');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng bật dịch vụ định vị')),
-      );
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        print('Quyền truy cập vị trí bị từ chối');
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('Dịch vụ định vị bị tắt');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Quyền truy cập vị trí bị từ chối')),
+          const SnackBar(content: Text('Vui lòng bật dịch vụ định vị')),
         );
         return;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      print('Quyền truy cập vị trí bị từ chối vĩnh viễn');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Quyền truy cập vị trí bị từ chối vĩnh viễn')),
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          print('Quyền truy cập vị trí bị từ chối');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Quyền truy cập vị trí bị từ chối')),
+          );
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        print('Quyền truy cập vị trí bị từ chối vĩnh viễn');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Quyền truy cập vị trí bị từ chối vĩnh viễn'),
+          ),
+        );
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException(
+            'Không thể lấy vị trí trong thời gian cho phép',
+          );
+        },
       );
-      return;
+
+      print('Vị trí người dùng: ${position.latitude}, ${position.longitude}');
+      _mapController.move(LatLng(position.latitude, position.longitude), 14.0);
+    } catch (e) {
+      print('Lỗi lấy vị trí: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi lấy vị trí: $e')));
+      _mapController.move(const LatLng(10.762622, 106.660172), 14.0);
     }
-
-    Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    ).timeout(
-      const Duration(seconds: 10),
-      onTimeout: () {
-        throw TimeoutException('Không thể lấy vị trí trong thời gian cho phép');
-      },
-    );
-
-    print('Vị trí người dùng: ${position.latitude}, ${position.longitude}');
-    _mapController.move(LatLng(position.latitude, position.longitude), 14.0);
-  } catch (e) {
-    print('Lỗi lấy vị trí: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Lỗi lấy vị trí: $e')),
-    );
-    // Fallback về toạ độ mặc định ở Việt Nam
-    _mapController.move(const LatLng(10.762622, 106.660172), 14.0);
   }
-}
 
-  //fill
   void _showFieldDetails(BuildContext context, SportsField field) {
     showModalBottomSheet(
       context: context,
@@ -401,7 +408,6 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  //icon sport
   Widget _buildSportMarker(BuildContext context, SportsField field) {
     Color markerColor;
     switch (field.sportType) {
@@ -470,7 +476,6 @@ class _HomeContentState extends State<HomeContent> {
                     style: TextStyle(color: Colors.white, fontSize: 18),
                   ),
                 )
-                
                 : SingleChildScrollView(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -566,7 +571,8 @@ class _HomeContentState extends State<HomeContent> {
                                   elevation: 6,
                                   child: const Icon(
                                     Icons.my_location,
-                                    color: Colors.white,
+                                    color:
+                                        Colors.white, // Sửa từ Categories.white
                                   ),
                                 ),
                               ),
@@ -669,7 +675,6 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-//build view card
   Widget _buildFieldCard(BuildContext context, SportsField field) {
     return Card(
       elevation: 8,
@@ -770,7 +775,22 @@ class _HomeContentState extends State<HomeContent> {
 
   Widget _buildSportCategory(IconData icon, String name, Color color) {
     return GestureDetector(
-      onTap: () {},
+      onTap: () {
+        setState(() {
+          if (_selectedSportType == name) {
+            // Clear filter if the same category is tapped again
+            _selectedSportType = null;
+            _sportsFields = List.from(_allSportsFields);
+          } else {
+            // Filter fields by the selected sport type
+            _selectedSportType = name;
+            _sportsFields =
+                _allSportsFields
+                    .where((field) => field.sportType == name)
+                    .toList();
+          }
+        });
+      },
       child: Card(
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
